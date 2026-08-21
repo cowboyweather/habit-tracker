@@ -18,7 +18,5 @@ export default async function Home() {
 
   if (!pet) redirect("/onboarding");
 
-  const username = (user.user_metadata.username as string) ?? "there";
-
-  return <HomeDashboard userId={user.id} username={username} />;
+  return <HomeDashboard userId={user.id} />;
 }

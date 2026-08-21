@@ -60,10 +60,9 @@ export function momentaryExpression(opts: {
 }
 
 // Her body occupies columns 0-14 of the 22-wide frame; the tail flourish
-// takes columns 15-21. Body center (7) sits 3.5 columns left of frame
-// center (10.5) — centerBody shifts the sprite right by that much so the
-// body, not the tail-inclusive frame, reads as centered.
-const BODY_OFFSET_COLUMNS = 3.5;
+// takes columns 15-21. The naive body-center offset (3.5 cols) overcorrects
+// visually, since the eye weighs the tail's pixels too — 2 cols reads right.
+const BODY_OFFSET_COLUMNS = 2;
 
 type Props = {
   expression?: Expression;

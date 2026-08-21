@@ -33,6 +33,8 @@ function logKey(habitId: string, dateKey: string) {
   return `${habitId}:${dateKey}`;
 }
 
+// Only ever walks backward from today, so future-dated logs (now toggleable)
+// can never be counted — don't change this to a forward scan.
 function computeStreak(
   habitId: string,
   logs: Record<string, boolean>,
@@ -54,13 +56,7 @@ function computeStreak(
   return streak;
 }
 
-export function HomeDashboard({
-  userId,
-  username,
-}: {
-  userId: string;
-  username: string;
-}) {
+export function HomeDashboard({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -173,15 +169,9 @@ export function HomeDashboard({
     return `${dateFragment} · ${seasonWord}, DAY ${dayNumber}`;
   }, [today, season, dayNumber]);
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Morning";
-    if (hour < 18) return "Afternoon";
-    return "Evening";
-  }, []);
-
   const mood = useMemo(() => {
     if (habits.length === 0) return "content" as const;
+    // today-6..today only — future-dated logs never enter this window.
     const trailingStart = addDays(today, -6);
     let doneCount = 0;
     for (const habit of habits) {
@@ -222,10 +212,6 @@ export function HomeDashboard({
           </button>
         </form>
       </div>
-
-      <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-        {greeting}, {username}
-      </h1>
 
       <div className="rounded-2xl bg-ink p-5">
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-sky/70">
@@ -303,13 +289,12 @@ export function HomeDashboard({
                       </span>
                       <button
                         type="button"
-                        disabled={isFuture}
                         onClick={() => toggleDay(habit.id, dateKey)}
                         className={`h-9 w-9 rounded-full border transition active:scale-90 ${
-                          isFuture
-                            ? "cursor-not-allowed border-dashed border-line opacity-50"
-                            : done
-                              ? "border-transparent"
+                          done
+                            ? "border-transparent"
+                            : isFuture
+                              ? "border-dashed border-line hover:border-accent"
                               : "border-line bg-card hover:border-accent"
                         }`}
                         style={
