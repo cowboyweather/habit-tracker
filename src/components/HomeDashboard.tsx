@@ -115,7 +115,9 @@ export function HomeDashboard({ userId }: { userId: string }) {
   const [logs, setLogs] = useState<Record<string, boolean>>({});
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [momentary, setMomentary] = useState<Expression | null>(null);
-  const momentaryChosen = useRef(false);
+  // Rolled once, lazily, the first time the effect below actually runs.
+  // null = not rolled yet.
+  const blepRoll = useRef<boolean | null>(null);
 
   const today = useMemo(() => startOfLocalDay(new Date()), []);
   const todayKey = useMemo(() => toDateKey(today), [today]);
@@ -179,23 +181,31 @@ export function HomeDashboard({ userId }: { userId: string }) {
     };
   }, [supabase, userId, todayKey]);
 
-  // Chosen once, client-side, after data loads — never during render, since
-  // Math.random() (inside momentaryExpression's blep roll) would run once on
-  // the server and again on the client, causing a hydration mismatch. The
-  // ref guard means later re-renders (e.g. from toggling a day) don't
-  // reroll it — it stays put until the page reloads, per spec.
+  // Recomputes on every relevant change (not frozen after the first run) —
+  // only the blep roll itself is frozen, via the ref, so a 4% chance only
+  // gets rolled once per page load instead of on every re-render. Excited
+  // and sleepy are deterministic, so they're allowed to update live; the
+  // earlier bug was freezing all three together, which let a stale
+  // "excited" silently override the mood display forever, even after a
+  // habit was unchecked. Runs in an effect (never during render) so
+  // Math.random()/ref reads stay out of SSR and never cause a hydration
+  // mismatch — while `loading` is true, this simply doesn't run yet.
   useEffect(() => {
-    if (loading || momentaryChosen.current) return;
-    momentaryChosen.current = true;
+    if (loading) return;
 
     const allHabitsDoneToday =
       habits.length > 0 &&
       habits.every((h) => logs[logKey(h.id, todayKey)] === true);
 
+    if (blepRoll.current === null) {
+      blepRoll.current = Math.random() < 0.04;
+    }
+
     setMomentary(
       momentaryExpression({
         allHabitsDoneToday,
         hour: new Date().getHours(),
+        blep: blepRoll.current,
       }),
     );
   }, [loading, habits, logs, todayKey]);

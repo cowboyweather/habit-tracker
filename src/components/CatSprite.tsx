@@ -49,13 +49,20 @@ export function momentaryExpression(opts: {
   allHabitsDoneToday?: boolean;
   streakJustBroke?: boolean;
   hour?: number;
+  /**
+   * Whether this page load's blep roll landed. Callers that want the 1-in-25
+   * chance to apply only once per page load (not reroll on every call, e.g.
+   * every time this is recomputed after a habit toggle) should roll it once
+   * themselves and pass the result here instead of leaving this undefined.
+   */
+  blep?: boolean;
 }): Expression | null {
   if (opts.streakJustBroke) return "restless";
   if (opts.allHabitsDoneToday) return "excited";
   const h = opts.hour ?? new Date().getHours();
   if (h >= 23 || h < 5) return "sleepy";
   // rare, random delight — roughly 1 in 25 opens
-  if (Math.random() < 0.04) return "blep";
+  if (opts.blep ?? Math.random() < 0.04) return "blep";
   return null;
 }
 
