@@ -59,6 +59,12 @@ export function momentaryExpression(opts: {
   return null;
 }
 
+// Her body occupies columns 0-14 of the 22-wide frame; the tail flourish
+// takes columns 15-21. Body center (7) sits 3.5 columns left of frame
+// center (10.5) — centerBody shifts the sprite right by that much so the
+// body, not the tail-inclusive frame, reads as centered.
+const BODY_OFFSET_COLUMNS = 3.5;
+
 type Props = {
   expression?: Expression;
   /** Rendered height in CSS pixels. Width follows the sprite's aspect ratio. */
@@ -66,6 +72,8 @@ type Props = {
   className?: string;
   /** Path to the sheet in /public. */
   src?: string;
+  /** Shift right so the cat's body reads as centered, not the tail-inclusive frame. */
+  centerBody?: boolean;
 };
 
 export default function CatSprite({
@@ -73,11 +81,13 @@ export default function CatSprite({
   size = 132,
   className,
   src = "/cat-sheet.png",
+  centerBody = true,
 }: Props) {
   const index = Math.max(0, FRAMES.indexOf(expression));
   const scale = Math.max(1, Math.round(size / FRAME_H));
   const width = FRAME_W * scale;
   const height = FRAME_H * scale;
+  const bodyOffset = centerBody ? BODY_OFFSET_COLUMNS * scale : 0;
 
   return (
     <div
@@ -92,6 +102,7 @@ export default function CatSprite({
         backgroundSize: `${width * FRAMES.length}px ${height}px`,
         backgroundPosition: `-${index * width}px 0`,
         imageRendering: "pixelated",
+        transform: bodyOffset ? `translateX(${bodyOffset}px)` : undefined,
       }}
     />
   );
