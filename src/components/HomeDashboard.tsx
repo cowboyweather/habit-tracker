@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import CatSprite, { moodFromCompletion } from "@/components/CatSprite";
+import CatSprite, {
+  moodFromCompletion,
+  momentaryExpression,
+  type Expression,
+} from "@/components/CatSprite";
 import { logout } from "@/lib/auth-actions";
 import {
   addDays,
@@ -110,6 +114,8 @@ export function HomeDashboard({ userId }: { userId: string }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<Record<string, boolean>>({});
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [momentary, setMomentary] = useState<Expression | null>(null);
+  const momentaryChosen = useRef(false);
 
   const today = useMemo(() => startOfLocalDay(new Date()), []);
   const todayKey = useMemo(() => toDateKey(today), [today]);
@@ -173,6 +179,27 @@ export function HomeDashboard({ userId }: { userId: string }) {
     };
   }, [supabase, userId, todayKey]);
 
+  // Chosen once, client-side, after data loads — never during render, since
+  // Math.random() (inside momentaryExpression's blep roll) would run once on
+  // the server and again on the client, causing a hydration mismatch. The
+  // ref guard means later re-renders (e.g. from toggling a day) don't
+  // reroll it — it stays put until the page reloads, per spec.
+  useEffect(() => {
+    if (loading || momentaryChosen.current) return;
+    momentaryChosen.current = true;
+
+    const allHabitsDoneToday =
+      habits.length > 0 &&
+      habits.every((h) => logs[logKey(h.id, todayKey)] === true);
+
+    setMomentary(
+      momentaryExpression({
+        allHabitsDoneToday,
+        hour: new Date().getHours(),
+      }),
+    );
+  }, [loading, habits, logs, todayKey]);
+
   async function toggleDay(habitId: string, dateKey: string) {
     const key = logKey(habitId, dateKey);
     const wasDone = logs[key] ?? false;
@@ -235,6 +262,10 @@ export function HomeDashboard({ userId }: { userId: string }) {
     return moodFromCompletion(rate);
   }, [habits, logs, today]);
 
+  // The sprite shows the momentary expression when there is one; the label
+  // underneath always shows the underlying mood, even while she's blep-ing.
+  const displayExpression = momentary ?? mood;
+
   if (loading) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-[420px] items-center justify-center px-4">
@@ -275,7 +306,7 @@ export function HomeDashboard({ userId }: { userId: string }) {
 
       <div className="flex flex-col items-center gap-2">
         <div className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-br from-sky to-sand p-6">
-          <CatSprite expression={mood} size={140} />
+          <CatSprite expression={displayExpression} size={140} />
         </div>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
           {petName} · {mood}
