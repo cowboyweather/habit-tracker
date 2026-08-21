@@ -18,5 +18,5 @@ export default async function Home() {
 
   if (!pet) redirect("/onboarding");
 
-  return <HomeDashboard userId={user.id} />;
+  return <HomeDashboard userId={user.id} createdAt={user.created_at} />;
 }

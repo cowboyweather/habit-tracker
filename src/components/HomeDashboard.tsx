@@ -105,7 +105,13 @@ function computeWeeklyStreak(
   return streak;
 }
 
-export function HomeDashboard({ userId }: { userId: string }) {
+export function HomeDashboard({
+  userId,
+  createdAt,
+}: {
+  userId: string;
+  createdAt: string;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -121,6 +127,12 @@ export function HomeDashboard({ userId }: { userId: string }) {
 
   const today = useMemo(() => startOfLocalDay(new Date()), []);
   const todayKey = useMemo(() => toDateKey(today), [today]);
+  // Grace period covers the account's creation day plus the next 6 (7 days
+  // total, days 0-6) — day 7 onward is normal, no transition.
+  const inGracePeriod = useMemo(() => {
+    const createdDay = startOfLocalDay(new Date(createdAt));
+    return daysBetween(createdDay, today) < 7;
+  }, [createdAt, today]);
   const weekDates = useMemo(() => {
     const start = startOfWeek(today);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -272,9 +284,20 @@ export function HomeDashboard({ userId }: { userId: string }) {
     return moodFromCompletion(rate);
   }, [habits, logs, today]);
 
+  // New-user grace period: floors low moods up to "content" for the first 7
+  // days, so a rough first week doesn't greet a brand-new user with a
+  // restless/scruffy cat. Only floors — happy stays happy, never pulled down.
+  const flooredMood = useMemo(() => {
+    if (inGracePeriod && (mood === "restless" || mood === "scruffy")) {
+      return "content" as const;
+    }
+    return mood;
+  }, [inGracePeriod, mood]);
+
   // The sprite shows the momentary expression when there is one; the label
-  // underneath always shows the underlying mood, even while she's blep-ing.
-  const displayExpression = momentary ?? mood;
+  // underneath shows the floored mood too — a new user shouldn't see
+  // "restless" in text while the sprite reads content.
+  const displayExpression = momentary ?? flooredMood;
 
   if (loading) {
     return (
@@ -319,7 +342,7 @@ export function HomeDashboard({ userId }: { userId: string }) {
           <CatSprite expression={displayExpression} size={140} />
         </div>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-          {petName} · {mood}
+          {petName} · {flooredMood}
         </p>
       </div>
 
