@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import CatSprite, { moodFromCompletion } from "@/components/CatSprite";
 import { logout } from "@/lib/auth-actions";
@@ -245,9 +246,17 @@ export function HomeDashboard({
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-          This week
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+            This week
+          </p>
+          <Link
+            href="/habits"
+            className="text-xs font-medium text-accent transition hover:text-accent/80"
+          >
+            Manage habits
+          </Link>
+        </div>
 
         {toggleError && (
           <p className="text-xs text-red-500/80">{toggleError}</p>
