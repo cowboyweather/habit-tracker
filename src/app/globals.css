@@ -4,6 +4,17 @@
  * Design tokens — shared across every page. Change a value here and it
  * updates everywhere the corresponding utility class is used (bg-accent,
  * text-muted, border-line, etc).
+ *
+ * Seasonal theming: :root holds summer's values as the default (used until
+ * the season is determined client-side — see SeasonTheme.tsx). The other
+ * three seasons override via [data-season="..."] on <html>, set by that
+ * component. --color-card stays white in every season (a deliberate choice,
+ * not an oversight — see SeasonTheme.tsx). --color-muted and --color-line
+ * weren't given per-season values, so they're derived by blending each
+ * season's background toward its ink at the same ratios summer's actual
+ * muted/line sit at (~55% and ~8% of the way to ink, respectively) — keeps
+ * contrast/hierarchy consistent across seasons. Habit colors (habit-colors.ts)
+ * are intentionally NOT part of this system — they identify habits, not season.
  */
 :root {
   --color-background: #e8f1f0;
@@ -14,6 +25,39 @@
   --color-accent: #2e8c8c;
   --color-sand: #f0e5d2;
   --color-sky: #dceff2;
+}
+
+:root[data-season="spring"] {
+  --color-background: #e9f1e4;
+  --color-card: #ffffff;
+  --color-ink: #1e3326;
+  --color-muted: #7a897c;
+  --color-line: #d8e1d4;
+  --color-accent: #5b9e6b;
+  --color-sand: #f0e4dc;
+  --color-sky: #dcebd5;
+}
+
+:root[data-season="autumn"] {
+  --color-background: #f3e9dc;
+  --color-card: #ffffff;
+  --color-ink: #33251a;
+  --color-muted: #8a7e72;
+  --color-line: #e3d9cc;
+  --color-accent: #b4652c;
+  --color-sand: #e8d3b6;
+  --color-sky: #ebdbc7;
+}
+
+:root[data-season="winter"] {
+  --color-background: #e6eaf0;
+  --color-card: #ffffff;
+  --color-ink: #1a2231;
+  --color-muted: #767c87;
+  --color-line: #d5dae0;
+  --color-accent: #4a5f94;
+  --color-sand: #edf1f6;
+  --color-sky: #d8dee9;
 }
 
 @theme inline {
