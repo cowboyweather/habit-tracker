@@ -1,26 +1,39 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — shared across every page. Change a value here and it
+ * updates everywhere the corresponding utility class is used (bg-accent,
+ * text-muted, border-line, etc).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-background: #e8f1f0;
+  --color-card: #ffffff;
+  --color-ink: #17302e;
+  --color-muted: #6f8b88;
+  --color-line: #d5e3e1;
+  --color-accent: #2e8c8c;
+  --color-sand: #f0e5d2;
+  --color-sky: #dceff2;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-background: var(--color-background);
+  --color-card: var(--color-card);
+  --color-ink: var(--color-ink);
+  --color-muted: var(--color-muted);
+  --color-line: var(--color-line);
+  --color-accent: var(--color-accent);
+  --color-sand: var(--color-sand);
+  --color-sky: var(--color-sky);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
 }
