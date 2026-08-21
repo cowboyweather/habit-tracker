@@ -369,11 +369,13 @@ export function HabitManager({ userId }: { userId: string }) {
               {habit.target_type === "weekly" && (
                 <label className="flex items-center gap-1.5 text-xs text-muted">
                   <input
+                    key={`target-count-${habit.id}-${habit.target_count}`}
                     type="number"
+                    inputMode="numeric"
                     min={1}
                     max={7}
-                    value={habit.target_count}
-                    onChange={(e) =>
+                    defaultValue={habit.target_count}
+                    onBlur={(e) =>
                       updateTargetCount(habit.id, e.target.value)
                     }
                     className="h-7 w-12 rounded border border-line bg-card px-1 text-center text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
