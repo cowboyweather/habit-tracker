@@ -12,6 +12,8 @@ type Habit = {
   color: string;
   position: number;
   archived: boolean;
+  target_type: "daily" | "weekly";
+  target_count: number;
 };
 
 export function HabitManager({ userId }: { userId: string }) {
@@ -28,7 +30,7 @@ export function HabitManager({ userId }: { userId: string }) {
     async function load() {
       const { data, error } = await supabase
         .from("habits")
-        .select("id, name, color, position, archived")
+        .select("id, name, color, position, archived, target_type, target_count")
         .eq("user_id", userId)
         .order("position", { ascending: true });
 
@@ -72,7 +74,7 @@ export function HabitManager({ userId }: { userId: string }) {
         position: active.length,
         archived: false,
       })
-      .select("id, name, color, position, archived")
+      .select("id, name, color, position, archived, target_type, target_count")
       .single();
 
     setAdding(false);
@@ -118,6 +120,42 @@ export function HabitManager({ userId }: { userId: string }) {
     if (error) {
       setHabits(prevHabits);
       setError("Couldn't change that color.");
+    }
+  }
+
+  async function updateTargetType(id: string, targetType: "daily" | "weekly") {
+    const prevHabits = habits;
+    setHabits((prev) =>
+      prev.map((h) => (h.id === id ? { ...h, target_type: targetType } : h)),
+    );
+
+    const { error } = await supabase
+      .from("habits")
+      .update({ target_type: targetType })
+      .eq("id", id);
+
+    if (error) {
+      setHabits(prevHabits);
+      setError("Couldn't change that habit's type.");
+    }
+  }
+
+  async function updateTargetCount(id: string, rawValue: string) {
+    const parsed = Math.min(7, Math.max(1, Number(rawValue) || 1));
+
+    const prevHabits = habits;
+    setHabits((prev) =>
+      prev.map((h) => (h.id === id ? { ...h, target_count: parsed } : h)),
+    );
+
+    const { error } = await supabase
+      .from("habits")
+      .update({ target_count: parsed })
+      .eq("id", id);
+
+    if (error) {
+      setHabits(prevHabits);
+      setError("Couldn't update that target.");
     }
   }
 
@@ -303,6 +341,46 @@ export function HabitManager({ userId }: { userId: string }) {
                   style={{ backgroundColor: color }}
                 />
               ))}
+            </div>
+
+            <div className="flex items-center gap-2 pl-8">
+              <button
+                type="button"
+                onClick={() => updateTargetType(habit.id, "daily")}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  habit.target_type === "daily"
+                    ? "bg-ink text-white"
+                    : "border border-line text-muted hover:text-ink"
+                }`}
+              >
+                Daily
+              </button>
+              <button
+                type="button"
+                onClick={() => updateTargetType(habit.id, "weekly")}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  habit.target_type === "weekly"
+                    ? "bg-ink text-white"
+                    : "border border-line text-muted hover:text-ink"
+                }`}
+              >
+                Weekly
+              </button>
+              {habit.target_type === "weekly" && (
+                <label className="flex items-center gap-1.5 text-xs text-muted">
+                  <input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={habit.target_count}
+                    onChange={(e) =>
+                      updateTargetCount(habit.id, e.target.value)
+                    }
+                    className="h-7 w-12 rounded border border-line bg-card px-1 text-center text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
+                  />
+                  × / week
+                </label>
+              )}
             </div>
           </div>
         ))}

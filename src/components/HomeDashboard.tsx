@@ -19,6 +19,8 @@ type Habit = {
   name: string;
   color: string;
   position: number;
+  target_type: "daily" | "weekly";
+  target_count: number;
 };
 
 type Season = {
@@ -28,14 +30,26 @@ type Season = {
 
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const STREAK_LOOKBACK_DAYS = 400;
+const WEEK_STREAK_LOOKBACK_WEEKS = 104;
 
 function logKey(habitId: string, dateKey: string) {
   return `${habitId}:${dateKey}`;
 }
 
+function countDoneInRange(
+  habitId: string,
+  logs: Record<string, boolean>,
+  dates: Date[],
+): number {
+  return dates.reduce(
+    (count, d) => count + (logs[logKey(habitId, toDateKey(d))] ? 1 : 0),
+    0,
+  );
+}
+
 // Only ever walks backward from today, so future-dated logs (now toggleable)
 // can never be counted — don't change this to a forward scan.
-function computeStreak(
+function computeDailyStreak(
   habitId: string,
   logs: Record<string, boolean>,
   today: Date,
@@ -49,6 +63,37 @@ function computeStreak(
     if (logs[logKey(habitId, toDateKey(cursor))]) {
       streak++;
       cursor = addDays(cursor, -1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// Walks backward week by week (Sun-Sat). The current week only ever adds to
+// the streak (if already met) or is skipped — it never breaks the streak,
+// since it hasn't ended yet. Only a fully-elapsed unmet week stops it.
+function computeWeeklyStreak(
+  habitId: string,
+  logs: Record<string, boolean>,
+  today: Date,
+  targetCount: number,
+): number {
+  let weekStart = startOfWeek(today);
+  const currentWeekDates = Array.from({ length: 7 }, (_, i) =>
+    addDays(weekStart, i),
+  );
+  let streak = 0;
+  if (countDoneInRange(habitId, logs, currentWeekDates) >= targetCount) {
+    streak++;
+  }
+  weekStart = addDays(weekStart, -7);
+
+  for (let i = 0; i < WEEK_STREAK_LOOKBACK_WEEKS; i++) {
+    const dates = Array.from({ length: 7 }, (_, j) => addDays(weekStart, j));
+    if (countDoneInRange(habitId, logs, dates) >= targetCount) {
+      streak++;
+      weekStart = addDays(weekStart, -7);
     } else {
       break;
     }
@@ -85,7 +130,7 @@ export function HomeDashboard({ userId }: { userId: string }) {
           .maybeSingle(),
         supabase
           .from("habits")
-          .select("id, name, color, position")
+          .select("id, name, color, position, target_type, target_count")
           .eq("user_id", userId)
           .eq("archived", false)
           .order("position", { ascending: true }),
@@ -171,16 +216,22 @@ export function HomeDashboard({ userId }: { userId: string }) {
 
   const mood = useMemo(() => {
     if (habits.length === 0) return "content" as const;
-    // today-6..today only — future-dated logs never enter this window.
+    // today-6..today only — future-dated logs never enter this window. Both
+    // daily and weekly habits use this same rolling window for mood, so a
+    // weekly habit's contribution doesn't reset to 0 every Sunday morning —
+    // only the displayed "this week" count and streak use the calendar week.
     const trailingStart = addDays(today, -6);
-    let doneCount = 0;
-    for (const habit of habits) {
-      for (let i = 0; i < 7; i++) {
-        const d = addDays(trailingStart, i);
-        if (logs[logKey(habit.id, toDateKey(d))]) doneCount++;
-      }
-    }
-    const rate = doneCount / (habits.length * 7);
+    const trailing7 = Array.from({ length: 7 }, (_, i) =>
+      addDays(trailingStart, i),
+    );
+    const contributions = habits.map((habit) => {
+      const done = countDoneInRange(habit.id, logs, trailing7);
+      return habit.target_type === "weekly"
+        ? Math.min(1, done / habit.target_count)
+        : done / 7;
+    });
+    const rate =
+      contributions.reduce((sum, c) => sum + c, 0) / contributions.length;
     return moodFromCompletion(rate);
   }, [habits, logs, today]);
 
@@ -253,7 +304,17 @@ export function HomeDashboard({ userId }: { userId: string }) {
         )}
 
         {habits.map((habit) => {
-          const streak = computeStreak(habit.id, logs, today);
+          const isWeekly = habit.target_type === "weekly";
+          const dailyStreak = isWeekly
+            ? 0
+            : computeDailyStreak(habit.id, logs, today);
+          const weekCount = isWeekly
+            ? countDoneInRange(habit.id, logs, weekDates)
+            : 0;
+          const weekStreak = isWeekly
+            ? computeWeeklyStreak(habit.id, logs, today, habit.target_count)
+            : 0;
+
           return (
             <div
               key={habit.id}
@@ -262,13 +323,35 @@ export function HomeDashboard({ userId }: { userId: string }) {
               <div className="flex items-baseline justify-between">
                 <p className="font-medium text-ink">{habit.name}</p>
                 <p className="text-sm">
-                  <span
-                    className="font-semibold"
-                    style={{ color: habit.color }}
-                  >
-                    {streak}
-                  </span>{" "}
-                  <span className="text-muted">day streak</span>
+                  {isWeekly ? (
+                    <>
+                      <span
+                        className="font-semibold"
+                        style={{ color: habit.color }}
+                      >
+                        {weekCount}
+                      </span>{" "}
+                      <span className="text-muted">
+                        of {habit.target_count} this week
+                      </span>
+                      {weekStreak > 1 && (
+                        <span className="text-muted">
+                          {" "}
+                          · {weekStreak} week streak
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span
+                        className="font-semibold"
+                        style={{ color: habit.color }}
+                      >
+                        {dailyStreak}
+                      </span>{" "}
+                      <span className="text-muted">day streak</span>
+                    </>
+                  )}
                 </p>
               </div>
 
