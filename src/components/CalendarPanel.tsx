@@ -87,6 +87,7 @@ export function CalendarPanel({
   const [habits, setHabits] = useState<HabitRecord[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [retryToken, setRetryToken] = useState(0);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const today = useMemo(() => startOfLocalDay(new Date()), []);
   const accountCreated = useMemo(
@@ -159,6 +160,46 @@ export function CalendarPanel({
     setLoading(true);
     setLoadError(null);
     setRetryToken((t) => t + 1);
+  }
+
+  // Same upsert path and (habit_id, log_date) unique constraint as Home's
+  // circle toggles — optimistic update first, revert on failure. No date
+  // restriction: retroactive editing here is intentionally unbounded.
+  async function toggleDetailLog(
+    habitId: string,
+    dateKey: string,
+    wasDone: boolean,
+  ) {
+    const nextDone = !wasDone;
+    const prevLogs = logs;
+
+    setToggleError(null);
+    setLogs((prev) => {
+      const idx = prev.findIndex(
+        (l) => l.habit_id === habitId && l.log_date === dateKey,
+      );
+      if (idx === -1) {
+        return [...prev, { habit_id: habitId, log_date: dateKey, done: nextDone }];
+      }
+      const next = [...prev];
+      next[idx] = { ...next[idx], done: nextDone };
+      return next;
+    });
+
+    const { error } = await supabase.from("logs").upsert(
+      {
+        user_id: userId,
+        habit_id: habitId,
+        log_date: dateKey,
+        done: nextDone,
+      },
+      { onConflict: "habit_id,log_date" },
+    );
+
+    if (error) {
+      setLogs(prevLogs);
+      setToggleError("couldn't save that — try again.");
+    }
   }
 
   const logsByDate = useMemo(() => {
@@ -247,13 +288,15 @@ export function CalendarPanel({
     return { trackable, withActivity };
   }, [monthCells, dailyStats, today]);
 
-  const canGoPrev =
-    viewedYear > historyStart.getFullYear() ||
-    (viewedYear === historyStart.getFullYear() &&
-      viewedMonth > historyStart.getMonth());
+  // No lower bound — retroactive editing is unlimited, so month nav can't
+  // be either, or there'd be past months with real data (or worth adding
+  // data to) that are unreachable.
+  const canGoPrev = true;
   const canGoNext =
     viewedYear < today.getFullYear() ||
     (viewedYear === today.getFullYear() && viewedMonth < today.getMonth());
+  const isCurrentMonth =
+    viewedYear === today.getFullYear() && viewedMonth === today.getMonth();
 
   function goPrevMonth() {
     if (!canGoPrev) return;
@@ -277,6 +320,12 @@ export function CalendarPanel({
     }
   }
 
+  function goToToday() {
+    setSelectedDateKey(null);
+    setViewedYear(today.getFullYear());
+    setViewedMonth(today.getMonth());
+  }
+
   function onTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
   }
@@ -292,12 +341,15 @@ export function CalendarPanel({
   const selectedDetail = useMemo(() => {
     if (!selectedDateKey) return null;
     const dayLogs = logsByDate.get(selectedDateKey) ?? [];
-    // Include a habit if it was active that day, OR it has a real done log
-    // for that day (retroactive logging) — otherwise a day shaded "all"
-    // from a retroactive log could expand to a list that doesn't show it.
+    // A currently-active habit is always listed, on any day — editing is
+    // unbounded, so a habit you just created should still be backfillable
+    // to a date before it existed. An archived habit only shows if it was
+    // active that day or already has a real done log there — otherwise
+    // every day's list would accumulate every habit you've ever archived.
     const items = habits
       .filter(
         (h) =>
+          !h.archived ||
           isActiveOn(h, selectedDateKey) ||
           dayLogs.some((l) => l.habit_id === h.id && l.done),
       )
@@ -380,13 +432,24 @@ export function CalendarPanel({
       <HabitRings habits={ringHabits} />
 
       <div className="flex flex-col gap-3">
+        {!isCurrentMonth && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={goToToday}
+              className="text-xs font-medium text-accent transition hover:text-accent/80"
+            >
+              today
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={goPrevMonth}
-            disabled={!canGoPrev}
             aria-label="previous month"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90"
           >
             ‹
           </button>
@@ -397,18 +460,6 @@ export function CalendarPanel({
             <p className="text-xs text-muted">
               {monthSummary.withActivity} of {monthSummary.trackable} days
             </p>
-            {!canGoPrev && (
-              <p className="mt-1 text-[11px] text-muted">
-                history starts{" "}
-                {historyStart
-                  .toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                  .toLowerCase()}
-              </p>
-            )}
           </div>
           <button
             type="button"
@@ -441,7 +492,10 @@ export function CalendarPanel({
             const stat = dailyStats.get(key);
             const tier: Tier = isFuture || !stat ? "blank" : shadeTier(stat);
             const isSelected = key === selectedDateKey;
-            const disabled = isFuture || tier === "blank";
+            // Blank days are still tappable (unlike future ones) — a day
+            // with no data yet is exactly where a new retroactive log gets
+            // added, via the now-editable day-detail below.
+            const disabled = isFuture;
 
             return (
               <button
@@ -472,6 +526,9 @@ export function CalendarPanel({
                 day: "numeric",
               })}
             </p>
+            {toggleError && (
+              <p className="mb-2 text-xs text-red-500/80">{toggleError}</p>
+            )}
             {selectedDetail.items.length === 0 ? (
               <p className="text-sm text-muted">
                 no habits were being tracked yet.
@@ -479,22 +536,27 @@ export function CalendarPanel({
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {selectedDetail.items.map(({ habit, done }) => (
-                  <li
-                    key={habit.id}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-ink">
-                      {habit.name}
-                      {habit.target_type === "weekly" && (
-                        <span className="text-muted"> (weekly)</span>
-                      )}
-                    </span>
-                    <span
-                      className={done ? "font-semibold" : "text-muted"}
-                      style={done ? { color: habit.color } : undefined}
+                  <li key={habit.id}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleDetailLog(habit.id, selectedDateKey, done)
+                      }
+                      className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-sm transition hover:bg-line/40 active:scale-[0.98]"
                     >
-                      {done ? "done" : "—"}
-                    </span>
+                      <span className="text-ink">
+                        {habit.name}
+                        {habit.target_type === "weekly" && (
+                          <span className="text-muted"> (weekly)</span>
+                        )}
+                      </span>
+                      <span
+                        className={done ? "font-semibold" : "text-muted"}
+                        style={done ? { color: habit.color } : undefined}
+                      >
+                        {done ? "done" : "—"}
+                      </span>
+                    </button>
                   </li>
                 ))}
               </ul>

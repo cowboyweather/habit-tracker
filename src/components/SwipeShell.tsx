@@ -48,7 +48,11 @@ export function SwipeShell({
           ref={homeRef}
           className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto"
         >
-          <HomeDashboard userId={userId} createdAt={createdAt} />
+          <HomeDashboard
+            userId={userId}
+            createdAt={createdAt}
+            isActive={activeIndex === 1}
+          />
         </div>
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
           <CalendarPanel

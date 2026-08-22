@@ -21,6 +21,9 @@ Last updated: 20 August 2026
 - Cat mood computed live from trailing 7-day completion
 - Habit management: add, rename, recolor, reorder, archive
 - Installs to an iPhone home screen with a custom icon
+- Swipe navigation: Clowder, Home, Calendar, Insights
+- Calendar: month view shaded by completion, per-habit progress rings, today button, unlimited retroactive editing via the tap-to-expand day detail
+- Insights: completion by weekday, habit correlations and season-over-season drift once there's enough data
 
 **Not built yet:** everything below.
 
@@ -40,6 +43,7 @@ Recorded so they don't get relitigated in future sessions.
 | Archive, never delete | Habits archive so their history still counts in stats |
 | Titles | Gently funny, never cruel. Self-roast is fine; being roasted by software is not |
 | Art | Pixel, micro dialect, seven expressions, palette swaps for alternate coats |
+| Retroactive editing | Unlimited — no bound on how far back a day can be edited. Denominator (habits trackable that day) still bounded by created_at/archived_at; a day that ends up over 100% from backfilled logs shades as fully complete rather than being capped or hidden |
 
 ---
 
@@ -49,12 +53,12 @@ The goal is that you personally open it every day without effort. Nothing here i
 new capability; it's removing friction.
 
 - [ ] **Use it for a week before building more.** Not a task, a gate.
-- [ ] Swipe navigation — three pages, home in the middle
-- [ ] New-user grace period so the cat stays content for the first 7 days
-- [ ] Empty and loading states — what the home page looks like on day zero
-- [ ] Error handling when a toggle fails to save
+- [x] Swipe navigation — four pages (Clowder, Home, Calendar, Insights), home in the middle
+- [x] New-user grace period so the cat stays content for the first 7 days
+- [x] Empty and loading states — what the home page looks like on day zero
+- [x] Error handling when a toggle fails to save
 - [ ] Password reset path (optional email captured at signup)
-- [ ] Habit target types: daily vs N-times-per-week, changing streak and mood math
+- [x] Habit target types: daily vs N-times-per-week, changing streak and mood math
 - [ ] Redraw the cat to match the real reference photo (tabby-and-white, white blaze, green eyes) — hire a pixel artist
 
 ---
@@ -63,14 +67,14 @@ new capability; it's removing friction.
 
 The differentiator. Everything here is arithmetic over data already stored.
 
-- [ ] Insights page (swipe right from home)
-- [ ] Month calendar, shaded by how many habits were hit each day
-- [ ] Completion by weekday
-- [ ] Habit correlations — "you read on 81% of days you exercised, vs 34% when you didn't"
-- [ ] Locked insights with an unlock countdown, so logging is the reward
-- [ ] Season-over-season comparison once there's more than one season of data
-- [ ] "Today" button on the insights calendar, to jump back to the current month once there's more than a couple of months of history
-- [ ] Retroactive editing of past days. Preferred approach: make the tap-to-expand day detail on the insights calendar editable, so habits can be toggled directly from there. Alternatives considered: a scrollable week strip on home, and a catch-up prompt after a gap
+- [x] Insights page (swipe right from home) — built as two pages, Calendar then Insights, since one page got crowded once rings and correlations were added
+- [x] Month calendar, shaded by how many habits were hit each day
+- [x] Completion by weekday
+- [x] Habit correlations — "you read on 81% of days you exercised, vs 34% when you didn't"
+- [x] Locked insights, gated by days-of-logging / seasons-of-data thresholds rather than a fixed unlock date, so logging is still the reward
+- [x] Season-over-season comparison once there's more than one season of data
+- [x] "Today" button on the calendar, to jump back to the current month once there's more than a couple of months of history
+- [x] Retroactive editing of past days. Built as planned: the tap-to-expand day detail on the calendar is editable, habits toggle directly from there, same optimistic-update/upsert path as Home's circles
 
 ---
 
@@ -129,4 +133,3 @@ Wanted, not scheduled.
 - What happens to a season's habits at rollover — carry over silently, or a review moment?
 - Is a 7-day mood window right, or does it move too fast?
 - At what point does a bad week's title stop being funny?
-- Should retroactive editing of past days be unlimited, or bounded to the last N days?

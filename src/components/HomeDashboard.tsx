@@ -109,9 +109,11 @@ function computeWeeklyStreak(
 export function HomeDashboard({
   userId,
   createdAt,
+  isActive,
 }: {
   userId: string;
   createdAt: string;
+  isActive: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
@@ -141,7 +143,14 @@ export function HomeDashboard({
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [today]);
 
+  // Refetches every time Home actually becomes visible, not just on mount —
+  // otherwise a toggle made from Calendar's day-detail (or Insights) would
+  // leave the cat's mood stale until a manual reload, since SwipeShell
+  // mounts every panel simultaneously. Mirrors the same pattern already
+  // used by CalendarPanel/InsightsPanel.
   useEffect(() => {
+    if (!isActive) return;
+
     let cancelled = false;
 
     async function load() {
@@ -216,7 +225,7 @@ export function HomeDashboard({
     return () => {
       cancelled = true;
     };
-  }, [supabase, userId, todayKey, retryToken]);
+  }, [supabase, userId, todayKey, retryToken, isActive]);
 
   // Resets to the loading state and bumps retryToken to re-run the effect
   // above. Done here (an event handler), not inside the effect itself, so
