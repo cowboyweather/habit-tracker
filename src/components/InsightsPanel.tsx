@@ -1,32 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { addDays, daysBetween, parseDateKey, startOfLocalDay, toDateKey } from "@/lib/date";
 import {
-  addDays,
-  daysBetween,
-  parseDateKey,
-  startOfLocalDay,
-  toDateKey,
-} from "@/lib/date";
+  computeDayStat,
+  isActiveOn,
+  WEEKDAY_LETTERS,
+  type HabitRecord,
+  type LogRow,
+  type DayStat,
+} from "@/lib/habit-stats";
 
-type HabitRecord = {
-  id: string;
-  name: string;
-  color: string;
-  target_type: "daily" | "weekly";
-  target_count: number;
-  created_at: string;
-  archived: boolean;
-  archived_at: string | null;
-};
-
-type LogRow = { habit_id: string; log_date: string; done: boolean };
 type SeasonRow = { name: string; start_date: string; end_date: string };
-type DayStat = { active: number; completed: number };
-type Tier = "blank" | "none" | "some" | "most" | "all";
 
-const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const WEEKDAY_NAMES = [
   "sunday",
   "monday",
@@ -36,85 +23,8 @@ const WEEKDAY_NAMES = [
   "friday",
   "saturday",
 ];
-const MONTH_NAMES = [
-  "january",
-  "february",
-  "march",
-  "april",
-  "may",
-  "june",
-  "july",
-  "august",
-  "september",
-  "october",
-  "november",
-  "december",
-];
 const CORRELATION_DAYS_NEEDED = 21;
 const CORRELATION_MIN_SAMPLE = 3;
-
-// A habit counts as active on a day if it existed by then and, if it's
-// since been archived, wasn't archived yet (the archive day itself still
-// counts). A currently-archived habit with no archived_at (archived before
-// this column existed) is conservatively treated as never active, rather
-// than guessed at — see the migration note in 0004_habit_archived_at.sql.
-function isActiveOn(habit: HabitRecord, dateKey: string): boolean {
-  const createdKey = toDateKey(startOfLocalDay(new Date(habit.created_at)));
-  if (dateKey < createdKey) return false;
-  if (habit.archived) {
-    if (!habit.archived_at) return false;
-    const archivedKey = toDateKey(startOfLocalDay(new Date(habit.archived_at)));
-    return dateKey <= archivedKey;
-  }
-  return true;
-}
-
-function computeDayStat(
-  habits: HabitRecord[],
-  logsByDate: Map<string, LogRow[]>,
-  dateKey: string,
-): DayStat {
-  let active = 0;
-  let completed = 0;
-  const dayLogs = logsByDate.get(dateKey);
-  for (const habit of habits) {
-    if (!isActiveOn(habit, dateKey)) continue;
-    active++;
-    if (dayLogs?.find((l) => l.habit_id === habit.id)?.done) completed++;
-  }
-  return { active, completed };
-}
-
-function shadeTier(stat: DayStat): Tier {
-  if (stat.active === 0) return "blank";
-  const ratio = stat.completed / stat.active;
-  if (ratio === 0) return "none";
-  if (ratio < 0.5) return "some";
-  if (ratio < 1) return "most";
-  return "all";
-}
-
-const TIER_CLASSES: Record<Tier, string> = {
-  blank: "",
-  none: "bg-card border border-line",
-  some: "bg-accent/20",
-  most: "bg-accent/55",
-  all: "bg-accent/90",
-};
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function buildMonthGrid(year: number, month: number): (Date | null)[] {
-  const firstWeekday = new Date(year, month, 1).getDay();
-  const total = daysInMonth(year, month);
-  const cells: (Date | null)[] = [];
-  for (let i = 0; i < firstWeekday; i++) cells.push(null);
-  for (let d = 1; d <= total; d++) cells.push(new Date(year, month, d));
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
-}
 
 function seasonForDate(
   seasons: SeasonRow[],
@@ -150,17 +60,12 @@ export function InsightsPanel({
     [createdAt],
   );
 
-  const [viewedYear, setViewedYear] = useState(() => today.getFullYear());
-  const [viewedMonth, setViewedMonth] = useState(() => today.getMonth());
-  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
-  const touchStartX = useRef<number | null>(null);
-
   // Refetches every time this panel actually becomes visible, not just on
-  // mount — SwipeShell mounts all three panels simultaneously, so a fetch
-  // on mount alone would go stale the moment you mark something on Home
-  // and then swipe over here. Deliberately doesn't reset loading/loadError
-  // first: a background refresh silently swaps in new data once it
-  // resolves, rather than flashing the skeleton on every revisit.
+  // mount — SwipeShell mounts all panels simultaneously, so a fetch on mount
+  // alone would go stale the moment you mark something on Home and then
+  // swipe over here. Deliberately doesn't reset loading/loadError first: a
+  // background refresh silently swaps in new data once it resolves, rather
+  // than flashing the skeleton on every revisit.
   useEffect(() => {
     if (!isActive) return;
 
@@ -174,7 +79,7 @@ export function InsightsPanel({
           supabase
             .from("habits")
             .select(
-              "id, name, color, target_type, target_count, created_at, archived, archived_at",
+              "id, name, color, position, target_type, target_count, created_at, archived, archived_at",
             )
             .eq("user_id", userId)
             .abortSignal(controller.signal),
@@ -233,7 +138,7 @@ export function InsightsPanel({
   }, [logs]);
 
   // Every day from account creation to today, computed once and reused for
-  // both the calendar (a month slice) and the weekday bars (all of it).
+  // the weekday bars, correlations, and seasonal drift below.
   const dailyStats = useMemo(() => {
     const map = new Map<string, DayStat>();
     const totalDays = daysBetween(accountCreated, today);
@@ -244,83 +149,10 @@ export function InsightsPanel({
     return map;
   }, [habits, logsByDate, accountCreated, today]);
 
-  const loggedDayKeys = useMemo(
-    () => new Set(logs.map((l) => l.log_date)),
+  const loggedDayCount = useMemo(
+    () => new Set(logs.map((l) => l.log_date)).size,
     [logs],
   );
-  const loggedDayCount = loggedDayKeys.size;
-
-  const monthCells = useMemo(
-    () => buildMonthGrid(viewedYear, viewedMonth),
-    [viewedYear, viewedMonth],
-  );
-
-  const monthSummary = useMemo(() => {
-    let trackable = 0;
-    let withActivity = 0;
-    for (const cell of monthCells) {
-      if (!cell || cell.getTime() > today.getTime()) continue;
-      const stat = dailyStats.get(toDateKey(cell));
-      if (!stat || stat.active === 0) continue;
-      trackable++;
-      if (stat.completed > 0) withActivity++;
-    }
-    return { trackable, withActivity };
-  }, [monthCells, dailyStats, today]);
-
-  const canGoPrev =
-    viewedYear > accountCreated.getFullYear() ||
-    (viewedYear === accountCreated.getFullYear() &&
-      viewedMonth > accountCreated.getMonth());
-  const canGoNext =
-    viewedYear < today.getFullYear() ||
-    (viewedYear === today.getFullYear() && viewedMonth < today.getMonth());
-
-  function goPrevMonth() {
-    if (!canGoPrev) return;
-    setSelectedDateKey(null);
-    if (viewedMonth === 0) {
-      setViewedYear((y) => y - 1);
-      setViewedMonth(11);
-    } else {
-      setViewedMonth((m) => m - 1);
-    }
-  }
-
-  function goNextMonth() {
-    if (!canGoNext) return;
-    setSelectedDateKey(null);
-    if (viewedMonth === 11) {
-      setViewedYear((y) => y + 1);
-      setViewedMonth(0);
-    } else {
-      setViewedMonth((m) => m + 1);
-    }
-  }
-
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(delta) < 40) return;
-    if (delta < 0) goNextMonth();
-    else goPrevMonth();
-  }
-
-  const selectedDetail = useMemo(() => {
-    if (!selectedDateKey) return null;
-    const dayLogs = logsByDate.get(selectedDateKey) ?? [];
-    const items = habits
-      .filter((h) => isActiveOn(h, selectedDateKey))
-      .map((h) => ({
-        habit: h,
-        done: dayLogs.find((l) => l.habit_id === h.id)?.done ?? false,
-      }));
-    return { items };
-  }, [selectedDateKey, logsByDate, habits]);
 
   const weekdayStats = useMemo(() => {
     const buckets = Array.from({ length: 7 }, () => ({
@@ -461,22 +293,6 @@ export function InsightsPanel({
         <div className="h-8 w-28 animate-pulse rounded bg-line" />
 
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="h-6 w-6 animate-pulse rounded bg-line" />
-            <div className="h-5 w-32 animate-pulse rounded bg-line" />
-            <div className="h-6 w-6 animate-pulse rounded bg-line" />
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {Array.from({ length: 35 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-square animate-pulse rounded-lg bg-line"
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3">
           <div className="h-3 w-40 animate-pulse rounded bg-line" />
           <div className="flex h-20 items-end justify-between gap-2">
             {Array.from({ length: 7 }).map((_, i) => (
@@ -528,130 +344,6 @@ export function InsightsPanel({
           this fills in as you log habits — nothing to show yet.
         </p>
       )}
-
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={goPrevMonth}
-            disabled={!canGoPrev}
-            aria-label="previous month"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
-          >
-            ‹
-          </button>
-          <div className="text-center">
-            <p className="font-semibold text-ink">
-              {MONTH_NAMES[viewedMonth]} {viewedYear}
-            </p>
-            <p className="text-xs text-muted">
-              {monthSummary.withActivity} of {monthSummary.trackable} days
-            </p>
-            {!canGoPrev && (
-              <p className="mt-1 text-[11px] text-muted">
-                history starts{" "}
-                {accountCreated
-                  .toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                  .toLowerCase()}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={goNextMonth}
-            disabled={!canGoNext}
-            aria-label="next month"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
-          >
-            ›
-          </button>
-        </div>
-
-        <div
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-          className="grid grid-cols-7 gap-1.5"
-        >
-          {WEEKDAY_LETTERS.map((l, i) => (
-            <div
-              key={i}
-              className="text-center font-mono text-[9px] uppercase text-muted"
-            >
-              {l}
-            </div>
-          ))}
-          {monthCells.map((cell, i) => {
-            if (!cell) return <div key={i} />;
-            const key = toDateKey(cell);
-            const isFuture = cell.getTime() > today.getTime();
-            const stat = dailyStats.get(key);
-            const tier: Tier = isFuture || !stat ? "blank" : shadeTier(stat);
-            const isSelected = key === selectedDateKey;
-            const disabled = isFuture || tier === "blank";
-
-            return (
-              <button
-                key={i}
-                type="button"
-                disabled={disabled}
-                onClick={() =>
-                  setSelectedDateKey(key === selectedDateKey ? null : key)
-                }
-                className={`aspect-square rounded-lg text-xs transition ${TIER_CLASSES[tier]} ${
-                  isSelected ? "ring-2 ring-accent" : ""
-                } ${tier === "most" || tier === "all" ? "text-white" : "text-ink"} ${
-                  disabled ? "cursor-default" : "active:scale-90"
-                }`}
-              >
-                {cell.getDate()}
-              </button>
-            );
-          })}
-        </div>
-
-        {selectedDetail && selectedDateKey && (
-          <div className="rounded-2xl border border-line bg-card p-4">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-              {parseDateKey(selectedDateKey).toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
-            {selectedDetail.items.length === 0 ? (
-              <p className="text-sm text-muted">
-                no habits were being tracked yet.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {selectedDetail.items.map(({ habit, done }) => (
-                  <li
-                    key={habit.id}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-ink">
-                      {habit.name}
-                      {habit.target_type === "weekly" && (
-                        <span className="text-muted"> (weekly)</span>
-                      )}
-                    </span>
-                    <span
-                      className={done ? "font-semibold" : "text-muted"}
-                      style={done ? { color: habit.color } : undefined}
-                    >
-                      {done ? "done" : "—"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
 
       <div className="flex flex-col gap-3">
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">

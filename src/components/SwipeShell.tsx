@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HomeDashboard } from "@/components/HomeDashboard";
+import { CalendarPanel } from "@/components/CalendarPanel";
 import { InsightsPanel } from "@/components/InsightsPanel";
 import { ClowderPanel } from "@/components/ClowderPanel";
 
-// Layout is Clowder - Home - Insights, left to right.
+// Layout is Clowder - Home - Calendar - Insights, left to right.
 export function SwipeShell({
   userId,
   createdAt,
@@ -29,7 +30,7 @@ export function SwipeShell({
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
     const index = Math.round(el.scrollLeft / el.clientWidth);
-    setActiveIndex(Math.max(0, Math.min(2, index)));
+    setActiveIndex(Math.max(0, Math.min(3, index)));
   }
 
   return (
@@ -50,10 +51,17 @@ export function SwipeShell({
           <HomeDashboard userId={userId} createdAt={createdAt} />
         </div>
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
-          <InsightsPanel
+          <CalendarPanel
             userId={userId}
             createdAt={createdAt}
             isActive={activeIndex === 2}
+          />
+        </div>
+        <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
+          <InsightsPanel
+            userId={userId}
+            createdAt={createdAt}
+            isActive={activeIndex === 3}
           />
         </div>
       </div>
@@ -62,7 +70,7 @@ export function SwipeShell({
         className="pointer-events-none fixed left-1/2 z-40 flex -translate-x-1/2 gap-1.5"
         style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
       >
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
             className={`h-1.5 rounded-full transition-all ${

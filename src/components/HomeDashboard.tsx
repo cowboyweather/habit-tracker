@@ -9,6 +9,7 @@ import CatSprite, {
   type Expression,
 } from "@/components/CatSprite";
 import { logout } from "@/lib/auth-actions";
+import { trailingWeekRate } from "@/lib/habit-progress";
 import {
   addDays,
   daysBetween,
@@ -308,9 +309,7 @@ export function HomeDashboard({
     );
     const contributions = habits.map((habit) => {
       const done = countDoneInRange(habit.id, logs, trailing7);
-      return habit.target_type === "weekly"
-        ? Math.min(1, done / habit.target_count)
-        : done / 7;
+      return trailingWeekRate(done, habit);
     });
     const rate =
       contributions.reduce((sum, c) => sum + c, 0) / contributions.length;

@@ -89,3 +89,21 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* A closed habit ring gets a brief pop so it reads as an event, not just a
+   slightly-fuller arc than 90%. Timed to land right as the fill transition
+   finishes (see HabitRings.tsx's 900ms stroke-dashoffset transition). */
+@keyframes ring-pop {
+  0% {
+    transform: scale(1);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-ring-pop {
+  animation: ring-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 820ms both;
+}
