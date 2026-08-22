@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { addDays, daysBetween, parseDateKey, startOfLocalDay, toDateKey } from "@/lib/date";
 import {
   computeDayStat,
+  dailyStatsRangeStart,
   isActiveOn,
   WEEKDAY_LETTERS,
   type HabitRecord,
@@ -137,17 +138,26 @@ export function InsightsPanel({
     return map;
   }, [logs]);
 
-  // Every day from account creation to today, computed once and reused for
-  // the weekday bars, correlations, and seasonal drift below.
+  // Normally accountCreated, but a retroactive log (Home's current-week
+  // strip allows toggling any day in the calendar week, including ones
+  // before the account existed) can push this earlier — see CalendarPanel's
+  // matching comment.
+  const historyStart = useMemo(
+    () => dailyStatsRangeStart(accountCreated, logsByDate),
+    [accountCreated, logsByDate],
+  );
+
+  // Every day from historyStart to today, computed once and reused for the
+  // weekday bars, correlations, and seasonal drift below.
   const dailyStats = useMemo(() => {
     const map = new Map<string, DayStat>();
-    const totalDays = daysBetween(accountCreated, today);
+    const totalDays = daysBetween(historyStart, today);
     for (let i = 0; i <= totalDays; i++) {
-      const key = toDateKey(addDays(accountCreated, i));
+      const key = toDateKey(addDays(historyStart, i));
       map.set(key, computeDayStat(habits, logsByDate, key));
     }
     return map;
-  }, [habits, logsByDate, accountCreated, today]);
+  }, [habits, logsByDate, historyStart, today]);
 
   const loggedDayCount = useMemo(
     () => new Set(logs.map((l) => l.log_date)).size,
@@ -161,7 +171,7 @@ export function InsightsPanel({
       trackableDays: 0,
     }));
     for (const [key, stat] of dailyStats) {
-      if (stat.active === 0) continue;
+      if (stat.active === 0 && stat.completed === 0) continue;
       const weekday = parseDateKey(key).getDay();
       buckets[weekday].active += stat.active;
       buckets[weekday].completed += stat.completed;

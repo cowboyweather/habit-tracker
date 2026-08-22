@@ -12,6 +12,7 @@ import {
 import {
   isActiveOn,
   computeDayStat,
+  dailyStatsRangeStart,
   WEEKDAY_LETTERS,
   type HabitRecord,
   type LogRow,
@@ -38,9 +39,12 @@ const MONTH_NAMES = [
 ];
 
 function shadeTier(stat: DayStat): Tier {
-  if (stat.active === 0) return "blank";
+  if (stat.completed === 0) return stat.active === 0 ? "blank" : "none";
+  // completed > 0 here. A retroactive log with no habit trackable that day
+  // (active === 0) still happened — show it as fully shaded rather than
+  // hiding it just because there's no denominator to divide by.
+  if (stat.active === 0) return "all";
   const ratio = stat.completed / stat.active;
-  if (ratio === 0) return "none";
   if (ratio < 0.5) return "some";
   if (ratio < 1) return "most";
   return "all";
@@ -167,15 +171,25 @@ export function CalendarPanel({
     return map;
   }, [logs]);
 
+  // Where the calendar's data actually starts — normally accountCreated,
+  // but a retroactive log (Home's current-week strip allows toggling any
+  // day in the calendar week, including ones before the account existed)
+  // can push this earlier. Drives dailyStats, how far back month nav can
+  // go, and the "history starts" caption, so all three stay in agreement.
+  const historyStart = useMemo(
+    () => dailyStatsRangeStart(accountCreated, logsByDate),
+    [accountCreated, logsByDate],
+  );
+
   const dailyStats = useMemo(() => {
     const map = new Map<string, DayStat>();
-    const totalDays = daysBetween(accountCreated, today);
+    const totalDays = daysBetween(historyStart, today);
     for (let i = 0; i <= totalDays; i++) {
-      const key = toDateKey(addDays(accountCreated, i));
+      const key = toDateKey(addDays(historyStart, i));
       map.set(key, computeDayStat(habits, logsByDate, key));
     }
     return map;
-  }, [habits, logsByDate, accountCreated, today]);
+  }, [habits, logsByDate, historyStart, today]);
 
   const loggedDayCount = useMemo(
     () => new Set(logs.map((l) => l.log_date)).size,
@@ -223,7 +237,10 @@ export function CalendarPanel({
     for (const cell of monthCells) {
       if (!cell || cell.getTime() > today.getTime()) continue;
       const stat = dailyStats.get(toDateKey(cell));
-      if (!stat || stat.active === 0) continue;
+      // A day with a retroactive log but no habit trackable that day
+      // (active === 0, completed > 0) still counts — otherwise the header
+      // ratio would contradict the shaded cell right below it.
+      if (!stat || (stat.active === 0 && stat.completed === 0)) continue;
       trackable++;
       if (stat.completed > 0) withActivity++;
     }
@@ -231,9 +248,9 @@ export function CalendarPanel({
   }, [monthCells, dailyStats, today]);
 
   const canGoPrev =
-    viewedYear > accountCreated.getFullYear() ||
-    (viewedYear === accountCreated.getFullYear() &&
-      viewedMonth > accountCreated.getMonth());
+    viewedYear > historyStart.getFullYear() ||
+    (viewedYear === historyStart.getFullYear() &&
+      viewedMonth > historyStart.getMonth());
   const canGoNext =
     viewedYear < today.getFullYear() ||
     (viewedYear === today.getFullYear() && viewedMonth < today.getMonth());
@@ -275,8 +292,15 @@ export function CalendarPanel({
   const selectedDetail = useMemo(() => {
     if (!selectedDateKey) return null;
     const dayLogs = logsByDate.get(selectedDateKey) ?? [];
+    // Include a habit if it was active that day, OR it has a real done log
+    // for that day (retroactive logging) — otherwise a day shaded "all"
+    // from a retroactive log could expand to a list that doesn't show it.
     const items = habits
-      .filter((h) => isActiveOn(h, selectedDateKey))
+      .filter(
+        (h) =>
+          isActiveOn(h, selectedDateKey) ||
+          dayLogs.some((l) => l.habit_id === h.id && l.done),
+      )
       .map((h) => ({
         habit: h,
         done: dayLogs.find((l) => l.habit_id === h.id)?.done ?? false,
@@ -376,7 +400,7 @@ export function CalendarPanel({
             {!canGoPrev && (
               <p className="mt-1 text-[11px] text-muted">
                 history starts{" "}
-                {accountCreated
+                {historyStart
                   .toLocaleDateString("en-US", {
                     month: "long",
                     day: "numeric",
