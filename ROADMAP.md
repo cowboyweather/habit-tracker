@@ -69,6 +69,8 @@ The differentiator. Everything here is arithmetic over data already stored.
 - [ ] Habit correlations — "you read on 81% of days you exercised, vs 34% when you didn't"
 - [ ] Locked insights with an unlock countdown, so logging is the reward
 - [ ] Season-over-season comparison once there's more than one season of data
+- [ ] "Today" button on the insights calendar, to jump back to the current month once there's more than a couple of months of history
+- [ ] Retroactive editing of past days. Preferred approach: make the tap-to-expand day detail on the insights calendar editable, so habits can be toggled directly from there. Alternatives considered: a scrollable week strip on home, and a catch-up prompt after a gap
 
 ---
 
@@ -127,3 +129,4 @@ Wanted, not scheduled.
 - What happens to a season's habits at rollover — carry over silently, or a review moment?
 - Is a 7-day mood window right, or does it move too fast?
 - At what point does a bad week's title stop being funny?
+- Should retroactive editing of past days be unlimited, or bounded to the last N days?
