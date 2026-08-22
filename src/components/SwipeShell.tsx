@@ -50,7 +50,11 @@ export function SwipeShell({
           <HomeDashboard userId={userId} createdAt={createdAt} />
         </div>
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
-          <InsightsPanel />
+          <InsightsPanel
+            userId={userId}
+            createdAt={createdAt}
+            isActive={activeIndex === 2}
+          />
         </div>
       </div>
 

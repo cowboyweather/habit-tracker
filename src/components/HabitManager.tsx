@@ -30,7 +30,9 @@ export function HabitManager({ userId }: { userId: string }) {
     async function load() {
       const { data, error } = await supabase
         .from("habits")
-        .select("id, name, color, position, archived, target_type, target_count")
+        .select(
+          "id, name, color, position, archived, target_type, target_count",
+        )
         .eq("user_id", userId)
         .order("position", { ascending: true });
 
@@ -202,7 +204,10 @@ export function HabitManager({ userId }: { userId: string }) {
     ]);
 
     const results = await Promise.all([
-      supabase.from("habits").update({ archived: true }).eq("id", id),
+      supabase
+        .from("habits")
+        .update({ archived: true, archived_at: new Date().toISOString() })
+        .eq("id", id),
       ...remainingActive.map((h) =>
         supabase.from("habits").update({ position: h.position }).eq("id", h.id),
       ),
@@ -228,7 +233,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     const { error } = await supabase
       .from("habits")
-      .update({ archived: false, position: newPosition })
+      .update({ archived: false, archived_at: null, position: newPosition })
       .eq("id", id);
 
     if (error) {
@@ -280,7 +285,9 @@ export function HabitManager({ userId }: { userId: string }) {
 
       <div className="flex flex-col gap-3">
         {active.length === 0 && (
-          <p className="text-sm text-muted">No active habits — add one above.</p>
+          <p className="text-sm text-muted">
+            No active habits — add one above.
+          </p>
         )}
 
         {active.map((habit, idx) => (
@@ -375,9 +382,7 @@ export function HabitManager({ userId }: { userId: string }) {
                     min={1}
                     max={7}
                     defaultValue={habit.target_count}
-                    onBlur={(e) =>
-                      updateTargetCount(habit.id, e.target.value)
-                    }
+                    onBlur={(e) => updateTargetCount(habit.id, e.target.value)}
                     className="h-7 w-12 rounded border border-line bg-card px-1 text-center text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
                   />
                   × / week
