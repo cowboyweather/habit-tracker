@@ -103,7 +103,7 @@ visible, which means revisiting the security policies.
 
 - [ ] Friends: invite, accept, list
 - [ ] Friends' cats visible, their habits private
-- [ ] Clans: small cooperative groups, shared goal, no leaderboard
+- [ ] Clowders: small cooperative groups, shared goal, no leaderboard
 - [ ] One nudge per person per day, then the app stops you
 - [ ] Hemisphere on the profile, so clan members show opposite seasons
 

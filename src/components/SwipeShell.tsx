@@ -3,13 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { InsightsPanel } from "@/components/InsightsPanel";
-import { ClanPanel } from "@/components/ClanPanel";
+import { ClowderPanel } from "@/components/ClowderPanel";
 
-// Layout is Insights - Home - Clan, left to right. Swiping left moves the
-// viewport toward later (rightward) content, same physics as flipping to
-// the next iOS home screen page — so "swipe left -> Clan" means Clan has
-// to sit to the right of Home, and "swipe right -> Insights" means
-// Insights sits to the left.
+// Layout is Clowder - Home - Insights, left to right.
 export function SwipeShell({
   userId,
   createdAt,
@@ -45,7 +41,7 @@ export function SwipeShell({
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
-          <InsightsPanel />
+          <ClowderPanel />
         </div>
         <div
           ref={homeRef}
@@ -54,7 +50,7 @@ export function SwipeShell({
           <HomeDashboard userId={userId} createdAt={createdAt} />
         </div>
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
-          <ClanPanel />
+          <InsightsPanel />
         </div>
       </div>
 
