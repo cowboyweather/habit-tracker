@@ -187,12 +187,12 @@ export function HomeDashboard({
         if (cancelled) return;
 
         if (petRes.error || habitsRes.error || logsRes.error) {
-          setLoadError("Couldn't load your data.");
+          setLoadError("couldn't load your data.");
           setLoading(false);
           return;
         }
 
-        setPetName(petRes.data?.name ?? "Your cat");
+        setPetName(petRes.data?.name ?? "your cat");
         setHabits((habitsRes.data as Habit[]) ?? []);
 
         const logMap: Record<string, boolean> = {};
@@ -206,7 +206,7 @@ export function HomeDashboard({
       } catch {
         clearTimeout(timeoutId);
         if (cancelled) return;
-        setLoadError("Couldn't load your data.");
+        setLoadError("couldn't load your data.");
         setLoading(false);
       }
     }
@@ -275,7 +275,7 @@ export function HomeDashboard({
 
     if (error) {
       setLogs((prev) => ({ ...prev, [key]: wasDone }));
-      setToggleError("Couldn't save that — try again.");
+      setToggleError("couldn't save that — try again.");
     }
   }
 
@@ -371,7 +371,7 @@ export function HomeDashboard({
               href="/habits"
               className="text-xs font-medium text-accent transition hover:text-accent/80"
             >
-              Manage habits
+              manage habits
             </Link>
           </div>
 
@@ -414,7 +414,7 @@ export function HomeDashboard({
           onClick={retry}
           className="rounded-xl bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
         >
-          Try again
+          try again
         </button>
       </div>
     );
@@ -441,7 +441,7 @@ export function HomeDashboard({
           This week you are
         </p>
         <p className="mt-2 text-xl font-semibold tracking-[-0.02em] text-white">
-          New here — let&apos;s get started
+          new here — let&apos;s get started
         </p>
       </div>
 
@@ -458,13 +458,13 @@ export function HomeDashboard({
         {habits.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-line bg-card p-6 text-center">
             <p className="text-sm text-muted">
-              You haven&apos;t tracked anything yet.
+              you haven&apos;t tracked anything yet.
             </p>
             <Link
               href="/habits"
               className="flex min-h-11 items-center justify-center rounded-xl bg-ink px-5 text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
             >
-              Add your first habit
+              add your first habit
             </Link>
           </div>
         ) : (
@@ -477,7 +477,7 @@ export function HomeDashboard({
                 href="/habits"
                 className="text-xs font-medium text-accent transition hover:text-accent/80"
               >
-                Manage habits
+                manage habits
               </Link>
             </div>
 

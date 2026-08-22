@@ -56,8 +56,8 @@ export function AuthCard({
             name="username"
             type="text"
             required
-            pattern="[a-z0-9_]{3,20}"
-            title="3-20 characters: lowercase letters, numbers, underscore"
+            pattern="[A-Za-z0-9_]{3,20}"
+            title="3-20 characters: letters, numbers, underscore"
             className={FIELD_CLASS}
           />
           {usernameError && (

@@ -34,7 +34,7 @@ export function OnboardingFlow() {
     setError(null);
     const finalName = catName.trim();
     if (!finalName) {
-      setError("Enter a name for your cat to continue.");
+      setError("enter a name for your cat to continue.");
       return;
     }
     startTransition(async () => {
@@ -42,7 +42,7 @@ export function OnboardingFlow() {
         await saveCatName(finalName);
         setStep(2);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
+        setError(e instanceof Error ? e.message : "something went wrong.");
       }
     });
   }
@@ -74,7 +74,7 @@ export function OnboardingFlow() {
     setError(null);
     const cleaned = habitNames.map((n) => n.trim()).filter(Boolean);
     if (cleaned.length === 0) {
-      setError("Add at least one habit to continue.");
+      setError("add at least one habit to continue.");
       return;
     }
     startTransition(async () => {
@@ -82,7 +82,7 @@ export function OnboardingFlow() {
         await saveHabits(habitNames);
         router.push("/");
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
+        setError(e instanceof Error ? e.message : "something went wrong.");
       }
     });
   }
@@ -98,10 +98,10 @@ export function OnboardingFlow() {
 
         <div className="flex flex-col items-center gap-1.5 text-center">
           <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-            Meet your cat
+            meet your cat
           </h1>
           <p className="text-sm text-muted">
-            She reflects how consistently you show up — keep up your habits
+            she reflects how consistently you show up — keep up your habits
             and she thrives.
           </p>
         </div>
@@ -120,7 +120,7 @@ export function OnboardingFlow() {
               type="text"
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
-              placeholder="e.g. Mochi"
+              placeholder="e.g. munchkin"
               className={FIELD_CLASS}
             />
           </div>
@@ -132,7 +132,7 @@ export function OnboardingFlow() {
               onClick={handleCatContinue}
               className="min-h-11 w-full rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
             >
-              Continue
+              continue
             </button>
           </div>
         </div>
@@ -146,7 +146,7 @@ export function OnboardingFlow() {
 
       <div className="flex flex-col items-center gap-1.5 text-center">
         <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-          What are you building?
+          what are you building?
         </h1>
       </div>
 
@@ -159,7 +159,7 @@ export function OnboardingFlow() {
             type="text"
             value={value}
             onChange={(e) => updateHabit(i, e.target.value)}
-            placeholder={`Habit ${i + 1}`}
+            placeholder={`habit ${i + 1}`}
             className={FIELD_CLASS}
           />
         ))}
@@ -170,7 +170,7 @@ export function OnboardingFlow() {
             onClick={addHabitRow}
             className="self-start text-sm font-medium text-accent transition hover:text-accent/80"
           >
-            + Add another
+            + add another
           </button>
         )}
 
@@ -193,7 +193,7 @@ export function OnboardingFlow() {
           onClick={handleHabitsContinue}
           className="mt-2 min-h-11 w-full rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
         >
-          Continue
+          continue
         </button>
       </div>
     </div>

@@ -10,12 +10,12 @@ export default async function SignupPage({
 
   return (
     <AuthCard
-      title="Create account"
-      subtitle="Pick a username — no email required."
+      title="create account"
+      subtitle="pick a username — no email required."
       action={signup}
-      primaryLabel="Sign up"
-      footerPrompt="Already have an account?"
-      footerLinkLabel="Log in"
+      primaryLabel="sign up"
+      footerPrompt="already have an account?"
+      footerLinkLabel="log in"
       footerHref="/login"
       searchParams={params}
     />

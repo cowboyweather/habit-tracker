@@ -8,10 +8,10 @@ export async function saveCatName(name: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated. Please log in again.");
+  if (!user) throw new Error("not authenticated. please log in again.");
 
   const petName = name.trim();
-  if (!petName) throw new Error("Enter a name for your cat.");
+  if (!petName) throw new Error("enter a name for your cat.");
 
   const { error } = await supabase
     .from("pets")
@@ -25,10 +25,10 @@ export async function saveHabits(names: string[]) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated. Please log in again.");
+  if (!user) throw new Error("not authenticated. please log in again.");
 
   const cleaned = names.map((n) => n.trim()).filter(Boolean).slice(0, 5);
-  if (cleaned.length === 0) throw new Error("Add at least one habit.");
+  if (cleaned.length === 0) throw new Error("add at least one habit.");
 
   const rows = cleaned.map((name, i) => ({
     user_id: user.id,

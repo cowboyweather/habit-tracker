@@ -98,7 +98,7 @@ export default function CatSprite({
   return (
     <div
       role="img"
-      aria-label={`Cat looking ${expression}`}
+      aria-label={`cat looking ${expression}`}
       className={className}
       style={{
         width,

@@ -39,7 +39,7 @@ export function HabitManager({ userId }: { userId: string }) {
       if (cancelled) return;
 
       if (error) {
-        setError("Couldn't load your habits.");
+        setError("couldn't load your habits.");
       } else {
         setHabits((data as Habit[]) ?? []);
       }
@@ -82,7 +82,7 @@ export function HabitManager({ userId }: { userId: string }) {
     setAdding(false);
 
     if (error || !data) {
-      setError("Couldn't add that habit.");
+      setError("couldn't add that habit.");
       return;
     }
 
@@ -106,7 +106,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (error) {
       setHabits(prevHabits);
-      setError("Couldn't rename that habit.");
+      setError("couldn't rename that habit.");
     }
   }
 
@@ -121,7 +121,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (error) {
       setHabits(prevHabits);
-      setError("Couldn't change that color.");
+      setError("couldn't change that color.");
     }
   }
 
@@ -138,7 +138,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (error) {
       setHabits(prevHabits);
-      setError("Couldn't change that habit's type.");
+      setError("couldn't change that habit's type.");
     }
   }
 
@@ -157,7 +157,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (error) {
       setHabits(prevHabits);
-      setError("Couldn't update that target.");
+      setError("couldn't update that target.");
     }
   }
 
@@ -184,7 +184,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (results.some((r) => r.error)) {
       setHabits(prevHabits);
-      setError("Couldn't reorder — try again.");
+      setError("couldn't reorder — try again.");
     }
   }
 
@@ -215,7 +215,7 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (results.some((r) => r.error)) {
       setHabits(prevHabits);
-      setError("Couldn't archive that habit.");
+      setError("couldn't archive that habit.");
     }
   }
 
@@ -238,14 +238,14 @@ export function HabitManager({ userId }: { userId: string }) {
 
     if (error) {
       setHabits(prevHabits);
-      setError("Couldn't unarchive that habit.");
+      setError("couldn't unarchive that habit.");
     }
   }
 
   if (loading) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-[420px] items-center justify-center px-4">
-        <p className="text-sm text-muted">Loading…</p>
+        <p className="text-sm text-muted">loading…</p>
       </div>
     );
   }
@@ -256,11 +256,11 @@ export function HabitManager({ userId }: { userId: string }) {
         href="/"
         className="text-sm font-medium text-accent transition hover:text-accent/80"
       >
-        ← Home
+        ← home
       </Link>
 
       <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-        Manage habits
+        manage habits
       </h1>
 
       {error && <p className="text-xs text-red-500/80">{error}</p>}
@@ -270,7 +270,7 @@ export function HabitManager({ userId }: { userId: string }) {
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="New habit"
+          placeholder="new habit"
           className={FIELD_CLASS}
         />
         <button
@@ -279,14 +279,14 @@ export function HabitManager({ userId }: { userId: string }) {
           onClick={addHabit}
           className="min-h-11 shrink-0 rounded-xl bg-ink px-4 text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-50"
         >
-          Add
+          add
         </button>
       </div>
 
       <div className="flex flex-col gap-3">
         {active.length === 0 && (
           <p className="text-sm text-muted">
-            No active habits — add one above.
+            no active habits — add one above.
           </p>
         )}
 
@@ -301,7 +301,7 @@ export function HabitManager({ userId }: { userId: string }) {
                   type="button"
                   disabled={idx === 0}
                   onClick={() => moveHabit(habit.id, -1)}
-                  aria-label="Move up"
+                  aria-label="move up"
                   className="flex h-5 w-5 items-center justify-center rounded text-muted transition hover:bg-line/60 hover:text-ink disabled:opacity-30"
                 >
                   ▲
@@ -310,7 +310,7 @@ export function HabitManager({ userId }: { userId: string }) {
                   type="button"
                   disabled={idx === active.length - 1}
                   onClick={() => moveHabit(habit.id, 1)}
-                  aria-label="Move down"
+                  aria-label="move down"
                   className="flex h-5 w-5 items-center justify-center rounded text-muted transition hover:bg-line/60 hover:text-ink disabled:opacity-30"
                 >
                   ▼
@@ -329,7 +329,7 @@ export function HabitManager({ userId }: { userId: string }) {
                 onClick={() => archiveHabit(habit.id)}
                 className="shrink-0 text-xs font-medium text-muted transition hover:text-ink"
               >
-                Archive
+                archive
               </button>
             </div>
 
@@ -339,7 +339,7 @@ export function HabitManager({ userId }: { userId: string }) {
                   key={color}
                   type="button"
                   onClick={() => recolorHabit(habit.id, color)}
-                  aria-label={`Set color ${color}`}
+                  aria-label={`set color ${color}`}
                   className={`h-6 w-6 rounded-full transition active:scale-90 ${
                     habit.color === color
                       ? "ring-2 ring-ink ring-offset-2 ring-offset-card"
@@ -360,7 +360,7 @@ export function HabitManager({ userId }: { userId: string }) {
                     : "border border-line text-muted hover:text-ink"
                 }`}
               >
-                Daily
+                daily
               </button>
               <button
                 type="button"
@@ -371,7 +371,7 @@ export function HabitManager({ userId }: { userId: string }) {
                     : "border border-line text-muted hover:text-ink"
                 }`}
               >
-                Weekly
+                weekly
               </button>
               {habit.target_type === "weekly" && (
                 <label className="flex items-center gap-1.5 text-xs text-muted">
@@ -409,7 +409,7 @@ export function HabitManager({ userId }: { userId: string }) {
                 onClick={() => unarchiveHabit(habit.id)}
                 className="text-xs font-medium text-accent transition hover:text-accent/80"
               >
-                Unarchive
+                unarchive
               </button>
             </div>
           ))}

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isValidUsername, usernameToEmail } from "@/lib/username";
 
 const USERNAME_RULES =
-  "Usernames must be 3-20 characters: lowercase letters, numbers, underscore.";
+  "usernames must be 3-20 characters: letters, numbers, underscore.";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -27,7 +27,7 @@ export async function login(formData: FormData) {
 
   if (error) {
     redirect(
-      `/login?field=password&error=${encodeURIComponent("Incorrect username or password.")}`,
+      `/login?field=password&error=${encodeURIComponent("incorrect username or password.")}`,
     );
   }
 
@@ -55,7 +55,7 @@ export async function signup(formData: FormData) {
 
   if (error) {
     const message = error.message.includes("already registered")
-      ? "That username is taken."
+      ? "that username is taken."
       : error.message;
     redirect(`/signup?field=username&error=${encodeURIComponent(message)}`);
   }
@@ -63,7 +63,7 @@ export async function signup(formData: FormData) {
   if (!data.session) {
     redirect(
       `/signup?error=${encodeURIComponent(
-        'Account created but not logged in — turn off "Confirm email" in Supabase (Authentication -> Providers -> Email) and try again.',
+        'account created but not logged in — turn off "Confirm email" in Supabase (Authentication -> Providers -> Email) and try again.',
       )}`,
     );
   }

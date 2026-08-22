@@ -28,27 +28,27 @@ type Tier = "blank" | "none" | "some" | "most" | "all";
 
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const WEEKDAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
 ];
 const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
 ];
 const CORRELATION_DAYS_NEEDED = 21;
 const CORRELATION_MIN_SAMPLE = 3;
@@ -193,7 +193,7 @@ export function InsightsPanel({
         if (cancelled) return;
 
         if (habitsRes.error || logsRes.error || seasonsRes.error) {
-          setLoadError("Couldn't load your data.");
+          setLoadError("couldn't load your data.");
           setLoading(false);
           return;
         }
@@ -205,7 +205,7 @@ export function InsightsPanel({
       } catch {
         clearTimeout(timeoutId);
         if (cancelled) return;
-        setLoadError("Couldn't load your data.");
+        setLoadError("couldn't load your data.");
         setLoading(false);
       }
     }
@@ -345,13 +345,13 @@ export function InsightsPanel({
     const withData = weekdayStats
       .map((b, i) => ({ ...b, index: i }))
       .filter((b) => b.trackableDays > 0);
-    if (withData.length < 2) return "Not enough data yet.";
+    if (withData.length < 2) return "not enough data yet.";
     const strongest = withData.reduce((a, b) => (b.rate > a.rate ? b : a));
     const weakest = withData.reduce((a, b) => (b.rate < a.rate ? b : a));
     if (strongest.index === weakest.index) {
-      return "Completion looks steady across the week so far.";
+      return "completion looks steady across the week so far.";
     }
-    return `Strongest on ${WEEKDAY_NAMES[strongest.index]}s, weakest on ${WEEKDAY_NAMES[weakest.index]}s.`;
+    return `strongest on ${WEEKDAY_NAMES[strongest.index]}s, weakest on ${WEEKDAY_NAMES[weakest.index]}s.`;
   }, [weekdayStats]);
 
   const correlation = useMemo(() => {
@@ -434,8 +434,8 @@ export function InsightsPanel({
       (curr.completed / curr.active - prev.completed / prev.active) * 100,
     );
     return {
-      prevName: prev.season.name.split(" ")[0],
-      currName: curr.season.name.split(" ")[0],
+      prevName: prev.season.name.split(" ")[0].toLowerCase(),
+      currName: curr.season.name.split(" ")[0].toLowerCase(),
       deltaPct,
     };
   }, [dailyStats, seasons]);
@@ -447,7 +447,7 @@ export function InsightsPanel({
     if (upcoming.length === 0) return null;
     const next = upcoming[0];
     return {
-      name: next.name.split(" ")[0],
+      name: next.name.split(" ")[0].toLowerCase(),
       days: daysBetween(today, parseDateKey(next.start_date)),
     };
   }, [seasons, todayKey, today]);
@@ -508,7 +508,7 @@ export function InsightsPanel({
           onClick={retry}
           className="rounded-xl bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
         >
-          Try again
+          try again
         </button>
       </div>
     );
@@ -520,12 +520,12 @@ export function InsightsPanel({
       style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
     >
       <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-        Insights
+        insights
       </h1>
 
       {loggedDayCount === 0 && (
         <p className="rounded-xl border border-line bg-card px-4 py-3 text-sm text-muted">
-          This fills in as you log habits — nothing to show yet.
+          this fills in as you log habits — nothing to show yet.
         </p>
       )}
 
@@ -535,7 +535,7 @@ export function InsightsPanel({
             type="button"
             onClick={goPrevMonth}
             disabled={!canGoPrev}
-            aria-label="Previous month"
+            aria-label="previous month"
             className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
           >
             ‹
@@ -549,12 +549,14 @@ export function InsightsPanel({
             </p>
             {!canGoPrev && (
               <p className="mt-1 text-[11px] text-muted">
-                History starts{" "}
-                {accountCreated.toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                history starts{" "}
+                {accountCreated
+                  .toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                  .toLowerCase()}
               </p>
             )}
           </div>
@@ -562,7 +564,7 @@ export function InsightsPanel({
             type="button"
             onClick={goNextMonth}
             disabled={!canGoNext}
-            aria-label="Next month"
+            aria-label="next month"
             className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
           >
             ›
@@ -622,7 +624,7 @@ export function InsightsPanel({
             </p>
             {selectedDetail.items.length === 0 ? (
               <p className="text-sm text-muted">
-                No habits were being tracked yet.
+                no habits were being tracked yet.
               </p>
             ) : (
               <ul className="flex flex-col gap-1.5">
@@ -641,7 +643,7 @@ export function InsightsPanel({
                       className={done ? "font-semibold" : "text-muted"}
                       style={done ? { color: habit.color } : undefined}
                     >
-                      {done ? "Done" : "—"}
+                      {done ? "done" : "—"}
                     </span>
                   </li>
                 ))}
@@ -684,10 +686,10 @@ export function InsightsPanel({
         </p>
 
         <div className="rounded-2xl border border-line bg-card p-4">
-          <p className="font-medium text-ink">Habit correlations</p>
+          <p className="font-medium text-ink">habit correlations</p>
           {habits.length < 2 ? (
             <p className="mt-1 text-sm text-muted">
-              Add a second habit to compare.
+              add a second habit to compare.
             </p>
           ) : loggedDayCount < CORRELATION_DAYS_NEEDED ? (
             <p className="mt-1 text-sm text-muted">
@@ -695,23 +697,23 @@ export function InsightsPanel({
             </p>
           ) : correlation ? (
             <p className="mt-1 text-sm text-ink">
-              On days you did {correlation.a.name}, you also did{" "}
+              on days you did {correlation.a.name}, you also did{" "}
               {correlation.b.name} {Math.round(correlation.withRate * 100)}% of
               the time — vs {Math.round(correlation.withoutRate * 100)}%
               otherwise.
             </p>
           ) : (
             <p className="mt-1 text-sm text-muted">
-              Still gathering enough overlap between habits.
+              still gathering enough overlap between habits.
             </p>
           )}
         </div>
 
         <div className="rounded-2xl border border-line bg-card p-4">
-          <p className="font-medium text-ink">Seasonal drift</p>
+          <p className="font-medium text-ink">seasonal drift</p>
           {seasonalDrift ? (
             <p className="mt-1 text-sm text-ink">
-              {seasonalDrift.deltaPct >= 0 ? "Up" : "Down"}{" "}
+              {seasonalDrift.deltaPct >= 0 ? "up" : "down"}{" "}
               {Math.abs(seasonalDrift.deltaPct)}% from {seasonalDrift.prevName}.
             </p>
           ) : nextSeasonCountdown ? (
@@ -720,7 +722,7 @@ export function InsightsPanel({
             </p>
           ) : (
             <p className="mt-1 text-sm text-muted">
-              Needs data from a second season.
+              needs data from a second season.
             </p>
           )}
         </div>

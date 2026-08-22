@@ -23,7 +23,7 @@ export function PasswordInput({
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Hide password" : "Show password"}
+        aria-label={visible ? "hide password" : "show password"}
         className="absolute inset-y-0 right-1 flex items-center rounded-md px-2 text-muted transition hover:bg-line/60 hover:text-ink active:scale-90"
       >
         {visible ? (

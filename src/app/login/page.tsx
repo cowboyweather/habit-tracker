@@ -10,12 +10,12 @@ export default async function LoginPage({
 
   return (
     <AuthCard
-      title="Habit Tracker"
-      subtitle="Small steps, tracked one day at a time."
+      title="habit tracker"
+      subtitle="small steps, tracked one day at a time."
       action={login}
-      primaryLabel="Log in"
-      footerPrompt="New here?"
-      footerLinkLabel="Sign up"
+      primaryLabel="log in"
+      footerPrompt="new here?"
+      footerLinkLabel="sign up"
       footerHref="/signup"
       searchParams={params}
     />
