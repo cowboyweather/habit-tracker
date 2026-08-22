@@ -454,7 +454,10 @@ export function InsightsPanel({
 
   if (loading) {
     return (
-      <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 py-8">
+      <div
+        className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
+        style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
+      >
         <div className="h-8 w-28 animate-pulse rounded bg-line" />
 
         <div className="flex flex-col gap-3">
@@ -498,7 +501,7 @@ export function InsightsPanel({
 
   if (loadError) {
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col items-center justify-center gap-4 px-4 text-center">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-sm text-muted">{loadError}</p>
         <button
           type="button"
@@ -512,7 +515,10 @@ export function InsightsPanel({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 py-8">
+    <div
+      className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
+      style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
+    >
       <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
         Insights
       </h1>
@@ -530,7 +536,7 @@ export function InsightsPanel({
             onClick={goPrevMonth}
             disabled={!canGoPrev}
             aria-label="Previous month"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
           >
             ‹
           </button>
@@ -541,13 +547,23 @@ export function InsightsPanel({
             <p className="text-xs text-muted">
               {monthSummary.withActivity} of {monthSummary.trackable} days
             </p>
+            {!canGoPrev && (
+              <p className="mt-1 text-[11px] text-muted">
+                History starts{" "}
+                {accountCreated.toLocaleDateString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={goNextMonth}
             disabled={!canGoNext}
             aria-label="Next month"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-line/60 active:scale-90 disabled:pointer-events-none disabled:text-muted/40"
           >
             ›
           </button>

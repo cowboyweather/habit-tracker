@@ -33,7 +33,7 @@ export function SwipeShell({
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
+    <div className="relative h-dvh w-screen overflow-hidden">
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -58,7 +58,10 @@ export function SwipeShell({
         </div>
       </div>
 
-      <div className="pointer-events-none fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-1.5">
+      <div
+        className="pointer-events-none fixed left-1/2 z-40 flex -translate-x-1/2 gap-1.5"
+        style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+      >
         {[0, 1, 2].map((i) => (
           <span
             key={i}

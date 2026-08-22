@@ -337,7 +337,10 @@ export function HomeDashboard({
 
   if (loading) {
     return (
-      <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 py-8">
+      <div
+        className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
+        style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
+      >
         <div className="flex items-center justify-between">
           <div className="h-3 w-36 animate-pulse rounded bg-line" />
           <form action={logout}>
@@ -404,7 +407,7 @@ export function HomeDashboard({
 
   if (loadError) {
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col items-center justify-center gap-4 px-4 text-center">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-sm text-muted">{loadError}</p>
         <button
           type="button"
@@ -418,7 +421,10 @@ export function HomeDashboard({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 py-8">
+    <div
+      className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
+      style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
+    >
       <div className="flex items-center justify-between">
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
           {topLine}
