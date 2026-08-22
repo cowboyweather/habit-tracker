@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { HomeDashboard } from "@/components/HomeDashboard";
+import { SwipeShell } from "@/components/SwipeShell";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -18,5 +18,5 @@ export default async function Home() {
 
   if (!pet) redirect("/onboarding");
 
-  return <HomeDashboard userId={user.id} createdAt={user.created_at} />;
+  return <SwipeShell userId={user.id} createdAt={user.created_at} />;
 }
