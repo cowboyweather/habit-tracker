@@ -3,16 +3,11 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { startOfLocalDay, toDateKey } from "@/lib/date";
-
-type SeasonName = "spring" | "summer" | "autumn" | "winter";
+import { seasonNameFromRow, type SeasonName } from "@/lib/season-palette";
+import { SeasonRecapDevPreview } from "@/components/SeasonRecapDevPreview";
 
 const SEASONS: SeasonName[] = ["spring", "summer", "autumn", "winter"];
 const isDev = process.env.NODE_ENV !== "production";
-
-function seasonNameFromRow(name: string): SeasonName | null {
-  const word = name.split(" ")[0].toLowerCase();
-  return (SEASONS as string[]).includes(word) ? (word as SeasonName) : null;
-}
 
 // Applies the seasonal palette by setting data-season on <html>, which
 // globals.css keys off of. The real season is determined client-side (not
@@ -105,6 +100,8 @@ export function SeasonTheme() {
               Clear override
             </button>
           )}
+          <div className="my-1 border-t border-line" />
+          <SeasonRecapDevPreview />
         </div>
       )}
       <button

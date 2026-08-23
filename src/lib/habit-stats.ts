@@ -16,6 +16,15 @@ export type LogRow = { habit_id: string; log_date: string; done: boolean };
 export type DayStat = { active: number; completed: number };
 
 export const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+export const WEEKDAY_NAMES = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
 
 // A habit counts as active on a day if it existed by then and, if it's
 // since been archived, wasn't archived yet (the archive day itself still

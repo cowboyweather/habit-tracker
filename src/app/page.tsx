@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SwipeShell } from "@/components/SwipeShell";
+import { getPendingSeasonRecap } from "@/lib/season-recap";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -17,6 +18,9 @@ export default async function Home() {
     .maybeSingle();
 
   if (!pet) redirect("/onboarding");
+
+  const pendingRecap = await getPendingSeasonRecap(supabase, user.id);
+  if (pendingRecap) redirect("/season-recap");
 
   return <SwipeShell userId={user.id} createdAt={user.created_at} />;
 }

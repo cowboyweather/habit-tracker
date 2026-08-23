@@ -24,6 +24,7 @@ Last updated: 20 August 2026
 - Swipe navigation: Clowder, Home, Calendar, Insights
 - Calendar: month view shaded by completion, per-habit progress rings, today button, unlimited retroactive editing via the tap-to-expand day detail
 - Insights: completion by weekday, habit correlations and season-over-season drift once there's enough data
+- Season recap: full-bleed screen shown once after a season ends, in the outgoing season's palette — check-ins, best streak, strongest weekday, completion rate, a fixed title placeholder, warmer copy for a thin season. Dev-only preview for any past season via the season-theme widget
 
 **Not built yet:** everything below.
 
@@ -44,6 +45,8 @@ Recorded so they don't get relitigated in future sessions.
 | Titles | Gently funny, never cruel. Self-roast is fine; being roasted by software is not |
 | Art | Pixel, micro dialect, seven expressions, palette swaps for alternate coats |
 | Retroactive editing | Unlimited — no bound on how far back a day can be edited. Denominator (habits trackable that day) still bounded by created_at/archived_at; a day that ends up over 100% from backfilled logs shades as fully complete rather than being capped or hidden |
+| Season recap "seen" tracking | Reuses the existing `titles` table (period_type='season') rather than a new one — a row is both the seen-record and the stored title/stats snapshot, which is also what Phase 3's "reopenable cards" needs. Written on dismiss, not on load, so closing the tab before dismissing doesn't burn the one-time recap — seeing it twice is an accepted failure mode |
+| Season recap eligibility | Only the most-recently-ended season ever triggers, no backlog for a longer absence. Requires ≥1 real log dated in that season (backfilled logs count — if they logged it, it's theirs). A season counts as "thin" if completion rate is under 25% (mirrors the cat's scruffy floor) OR total check-ins are under 15 — the count check exists because completion rate alone reads as artificially high when a habit is backfilled into a season it didn't exist during (zero trackable days that season, so the ratio defaults to 100%) |
 
 ---
 
@@ -85,9 +88,9 @@ The viral surface. Not worth building until there's real data to describe.
 - [ ] Weekly title generated Sunday night from that week's numbers
 - [ ] Prompt with 8–10 hand-written examples setting the voice
 - [ ] Explicit rule for what a bad week sounds like
-- [ ] Season recap screen shown once on first open after a solstice
+- [x] Season recap screen shown once on first open after a solstice — title is a fixed placeholder for now, not yet AI-generated
 - [ ] Shareable card image — the thing people actually post
-- [ ] Store generated titles with the stats they came from, so cards can be reopened
+- [x] Store generated titles with the stats they came from, so cards can be reopened — built early, as part of the season recap's `titles` row; weekly titles will use the same mechanism
 
 ---
 

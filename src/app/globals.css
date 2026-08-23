@@ -107,3 +107,20 @@ body {
 .animate-ring-pop {
   animation: ring-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 820ms both;
 }
+
+/* Season recap: each section fades up in sequence via animation-delay
+   (set inline per element), slower and more deliberate than the rest of
+   the app's snappier transitions — this is meant to feel like an event. */
+@keyframes recap-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-recap-fade-up {
+  animation: recap-fade-up 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}

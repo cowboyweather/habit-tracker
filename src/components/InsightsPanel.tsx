@@ -8,6 +8,7 @@ import {
   dailyStatsRangeStart,
   isActiveOn,
   WEEKDAY_LETTERS,
+  WEEKDAY_NAMES,
   type HabitRecord,
   type LogRow,
   type DayStat,
@@ -15,15 +16,6 @@ import {
 
 type SeasonRow = { name: string; start_date: string; end_date: string };
 
-const WEEKDAY_NAMES = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
 const CORRELATION_DAYS_NEEDED = 21;
 const CORRELATION_MIN_SAMPLE = 3;
 
