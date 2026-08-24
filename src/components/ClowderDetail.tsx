@@ -8,6 +8,82 @@ import { MemberRing } from "@/components/MemberRing";
 import { startOfLocalDay, toDateKey } from "@/lib/date";
 import type { ClowderMemberSummary } from "@/lib/clowder";
 
+// Ring size, tripled from the original 44px per the sizing pass — reads
+// clearly at a glance in a 2-up grid on a phone.
+const GRID_RING_SIZE = 132;
+const SHEET_RING_SIZE = 100;
+// 44px is the minimum comfortable touch target — every icon button here
+// uses this footprint even where the icon drawn inside it is smaller.
+const TOUCH_TARGET = "flex h-11 w-11 shrink-0 items-center justify-center";
+
+function SettingsIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+      <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <line x1="12" y1="2" x2="12" y2="5" />
+        <line x1="12" y1="19" x2="12" y2="22" />
+        <line x1="2" y1="12" x2="5" y2="12" />
+        <line x1="19" y1="12" x2="22" y2="12" />
+        <line x1="4.9" y1="4.9" x2="7" y2="7" />
+        <line x1="17" y1="17" x2="19.1" y2="19.1" />
+        <line x1="4.9" y1="19.1" x2="7" y2="17" />
+        <line x1="17" y1="7" x2="19.1" y2="4.9" />
+      </g>
+    </svg>
+  );
+}
+
+function LeaveIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path
+        d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 8l4 4-4 4M20 12H9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CopyIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path
+        d="M5 13l4 4L19 7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ClowderDetail({
   clowderId,
   userId,
@@ -95,7 +171,7 @@ export function ClowderDetail({
       setActionError("couldn't leave — try again.");
       return;
     }
-    router.push("/clowders");
+    router.push("/");
   }
 
   async function handleNudge(toUserId: string) {
@@ -166,7 +242,7 @@ export function ClowderDetail({
           you&apos;re not a member of this clowder.
         </p>
         <Link
-          href="/clowders"
+          href="/"
           className="rounded-xl bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
         >
           back to clowders
@@ -181,53 +257,72 @@ export function ClowderDetail({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pt-8 pb-24">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1">
           <Link
-            href="/clowders"
+            href="/"
             aria-label="back"
-            className="text-lg text-muted transition hover:text-ink"
+            className={`${TOUCH_TARGET} text-xl text-muted transition hover:text-ink`}
           >
             ←
           </Link>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
-            {clowderName}
-          </h1>
+          <div className="flex min-w-0 flex-col">
+            <h1 className="truncate text-2xl font-semibold tracking-[-0.02em] text-ink">
+              {clowderName}
+            </h1>
+            <div className="flex items-center gap-0.5">
+              <span className="font-mono text-xs tracking-[0.1em] text-muted">
+                {inviteCode}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCopy(inviteCode)}
+                aria-label="copy invite code"
+                className={`${TOUCH_TARGET} text-muted transition hover:text-ink`}
+              >
+                {copied ? <CheckIcon /> : <CopyIcon />}
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3 pt-1">
+        <div className="flex shrink-0 items-center gap-1">
           {iAmLeader && (
             <Link
               href={`/clowders/${clowderId}/settings`}
-              className="text-xs font-medium text-muted transition hover:text-ink"
+              aria-label="settings"
+              className={`${TOUCH_TARGET} rounded-full text-muted transition hover:bg-line/60 hover:text-ink`}
             >
-              settings
+              <SettingsIcon />
             </Link>
           )}
           {confirmingLeave ? (
-            <div className="flex items-center gap-2">
+            <>
               <button
                 type="button"
                 disabled={pending}
                 onClick={handleLeave}
-                className="text-xs font-medium text-red-500/80 transition hover:text-red-500 disabled:opacity-60"
+                aria-label="confirm leave"
+                className={`${TOUCH_TARGET} rounded-full text-red-500 transition hover:bg-red-500/10 disabled:opacity-60`}
               >
-                confirm
+                <LeaveIcon />
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingLeave(false)}
-                className="text-xs font-medium text-muted transition hover:text-ink"
+                aria-label="cancel"
+                className={`${TOUCH_TARGET} rounded-full text-lg text-muted transition hover:bg-line/60 hover:text-ink`}
               >
-                cancel
+                ×
               </button>
-            </div>
+            </>
           ) : (
             <button
               type="button"
               onClick={() => setConfirmingLeave(true)}
-              className="text-xs font-medium text-muted transition hover:text-ink"
+              aria-label="leave clowder"
+              className={`${TOUCH_TARGET} rounded-full text-red-500/70 transition hover:bg-red-500/10 hover:text-red-500`}
             >
-              leave
+              <LeaveIcon />
             </button>
           )}
         </div>
@@ -235,42 +330,28 @@ export function ClowderDetail({
 
       {actionError && <p className="text-xs text-red-500/80">{actionError}</p>}
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
         {members.map((m) => (
           <button
             key={m.user_id}
             type="button"
             onClick={() => setOpenMember(m)}
-            className="flex flex-col items-center gap-1.5 pt-3 text-center transition active:scale-95"
+            className="flex flex-col items-center gap-2 text-center transition active:scale-95"
           >
             <MemberRing
               expression={m.expression}
               rate={m.trailing_rate}
-              isLeader={m.is_leader}
+              size={GRID_RING_SIZE}
             />
-            <p className="w-full truncate text-xs font-medium text-ink">
+            <p className="w-full truncate text-sm font-medium text-ink">
               {m.cat_name}
             </p>
-            <p className="w-full truncate text-[11px] text-muted">
+            <p className="w-full truncate text-xs text-muted">
               {m.username}
             </p>
           </button>
         ))}
       </div>
-
-      <p className="text-center text-xs text-muted">
-        invite code:{" "}
-        <span className="font-mono tracking-[0.1em] text-ink">
-          {inviteCode}
-        </span>{" "}
-        <button
-          type="button"
-          onClick={() => handleCopy(inviteCode)}
-          className="font-medium text-accent transition hover:text-accent/80"
-        >
-          {copied ? "copied" : "copy"}
-        </button>
-      </p>
 
       {openMember && (
         <MemberSheet
@@ -308,8 +389,7 @@ function MemberSheet({
         <MemberRing
           expression={member.expression}
           rate={member.trailing_rate}
-          isLeader={member.is_leader}
-          size={72}
+          size={SHEET_RING_SIZE}
         />
         <div className="flex flex-col items-center gap-0.5 text-center">
           <p className="text-base font-medium text-ink">{member.cat_name}</p>

@@ -127,10 +127,10 @@ export function ClowderPanel({ isActive = true }: { isActive?: boolean }) {
     return (
       <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8">
         <div className="h-8 w-28 animate-pulse rounded bg-line" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-6">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex flex-col items-center gap-2">
-              <div className="h-12 w-12 animate-pulse rounded-xl bg-line" />
+              <div className="h-24 w-24 animate-pulse rounded-xl bg-line" />
               <div className="h-2.5 w-14 animate-pulse rounded bg-line" />
             </div>
           ))}
@@ -234,7 +234,7 @@ export function ClowderPanel({ isActive = true }: { isActive?: boolean }) {
           <Link
             href="/clowders/new"
             aria-label="add a clowder"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-lg text-ink transition hover:border-accent active:scale-[0.98]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line text-xl text-ink transition hover:border-accent active:scale-[0.98]"
           >
             +
           </Link>
@@ -281,7 +281,7 @@ export function ClowderPanel({ isActive = true }: { isActive?: boolean }) {
               href={`/clowders/${c.clowder_id}`}
               className="flex flex-col items-center gap-2 text-center transition active:scale-95"
             >
-              <ClowderHouseIcon />
+              <ClowderHouseIcon size={96} />
               <span className="w-full truncate text-xs font-medium text-ink">
                 {c.clowder_name}
               </span>

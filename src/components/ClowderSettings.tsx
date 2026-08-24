@@ -41,11 +41,11 @@ export function ClowderSettings({
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-8 px-4 pt-8">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
         <Link
           href={`/clowders/${clowderId}`}
           aria-label="back"
-          className="text-lg text-muted transition hover:text-ink"
+          className="flex h-11 w-11 items-center justify-center text-xl text-muted transition hover:text-ink"
         >
           ←
         </Link>

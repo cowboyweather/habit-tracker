@@ -48,12 +48,12 @@ export function NewClowderFlow() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-8 px-4 pt-8 pb-24">
-      <div className="flex items-center gap-3">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-4 pt-8 pb-24">
+      <div className="flex items-center gap-1">
         <Link
-          href="/clowders"
+          href="/"
           aria-label="back"
-          className="text-lg text-muted transition hover:text-ink"
+          className="flex h-11 w-11 items-center justify-center text-xl text-muted transition hover:text-ink"
         >
           ←
         </Link>
@@ -62,92 +62,76 @@ export function NewClowderFlow() {
         </h1>
       </div>
 
-      {error && <p className="text-xs text-red-500/80">{error}</p>}
+      <div className="flex flex-1 flex-col items-center justify-center gap-6">
+        {error && <p className="text-xs text-red-500/80">{error}</p>}
 
-      {mode === "none" && (
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setMode("create")}
-            className="min-h-11 flex-1 rounded-xl bg-ink text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
-          >
-            create a new one
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("join")}
-            className="min-h-11 flex-1 rounded-xl border border-line text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
-          >
-            join with a code
-          </button>
-        </div>
-      )}
+        {mode === "none" && (
+          <div className="flex w-full gap-3">
+            <button
+              type="button"
+              onClick={() => setMode("create")}
+              className="min-h-11 flex-1 rounded-xl bg-ink text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
+            >
+              create a new one
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("join")}
+              className="min-h-11 flex-1 rounded-xl border border-line text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
+            >
+              join with a code
+            </button>
+          </div>
+        )}
 
-      {mode === "create" && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+        {mode === "create" && (
+          <div className="flex w-full flex-col gap-3">
             <label className={LABEL_CLASS} htmlFor="clowder-name">
               create a clowder
             </label>
+            <input
+              id="clowder-name"
+              type="text"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              placeholder="e.g. sunday crew"
+              className={FIELD_CLASS}
+            />
             <button
               type="button"
-              onClick={() => setMode("none")}
-              className="text-xs font-medium text-muted transition hover:text-ink"
+              disabled={pending || !createName.trim()}
+              onClick={handleCreate}
+              className="min-h-11 rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
             >
-              cancel
+              create
             </button>
           </div>
-          <input
-            id="clowder-name"
-            type="text"
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            placeholder="e.g. sunday crew"
-            className={FIELD_CLASS}
-          />
-          <button
-            type="button"
-            disabled={pending || !createName.trim()}
-            onClick={handleCreate}
-            className="min-h-11 rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
-          >
-            create
-          </button>
-        </div>
-      )}
+        )}
 
-      {mode === "join" && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+        {mode === "join" && (
+          <div className="flex w-full flex-col gap-3">
             <label className={LABEL_CLASS} htmlFor="join-code">
               join with a code
             </label>
+            <input
+              id="join-code"
+              type="text"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="invite code"
+              className={`${FIELD_CLASS} font-mono uppercase tracking-[0.1em]`}
+            />
             <button
               type="button"
-              onClick={() => setMode("none")}
-              className="text-xs font-medium text-muted transition hover:text-ink"
+              disabled={pending || !joinCode.trim()}
+              onClick={handleJoin}
+              className="min-h-11 rounded-xl border border-line text-ink transition hover:border-accent active:scale-[0.98] disabled:opacity-60"
             >
-              cancel
+              join
             </button>
           </div>
-          <input
-            id="join-code"
-            type="text"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="invite code"
-            className={`${FIELD_CLASS} font-mono uppercase tracking-[0.1em]`}
-          />
-          <button
-            type="button"
-            disabled={pending || !joinCode.trim()}
-            onClick={handleJoin}
-            className="min-h-11 rounded-xl border border-line text-ink transition hover:border-accent active:scale-[0.98] disabled:opacity-60"
-          >
-            join
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
