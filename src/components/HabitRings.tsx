@@ -33,8 +33,8 @@ export function HabitRings({ habits }: { habits: RingHabit[] }) {
   const closedCount = shown.filter((h) => h.rate >= 1).length;
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex justify-center gap-4">
+    <div className="flex flex-col items-start gap-3">
+      <div className="flex justify-start gap-4">
         {shown.map((habit) => {
           const clamped = Math.min(1, Math.max(0, habit.rate));
           const closed = clamped >= 1;
