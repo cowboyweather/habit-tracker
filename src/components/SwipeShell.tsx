@@ -5,7 +5,6 @@ import { HomeDashboard } from "@/components/HomeDashboard";
 import { CalendarPanel } from "@/components/CalendarPanel";
 import { InsightsPanel } from "@/components/InsightsPanel";
 import { ClowderPanel } from "@/components/ClowderPanel";
-import { consumeSwipeLanding } from "@/lib/swipe-landing";
 
 // Layout is Clowder - Home - Calendar - Insights, left to right.
 export function SwipeShell({
@@ -17,26 +16,16 @@ export function SwipeShell({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const homeRef = useRef<HTMLDivElement>(null);
-  // Read exactly once, on mount — see swipe-landing.ts for why this is a
-  // cookie rather than a query param.
-  const [landing] = useState(() => consumeSwipeLanding());
-  const [activeIndex, setActiveIndex] = useState(() =>
-    landing.landOnClowder ? 0 : 1,
-  );
-  const [inviteFailedReason, setInviteFailedReason] = useState<string | null>(
-    () => landing.failedReason,
-  );
+  const [activeIndex, setActiveIndex] = useState(1);
 
-  // Home is where the app opens by default. Clowder (index 0) is already
-  // the container's natural resting scroll position — it's the first
-  // child — so landing there needs no explicit scroll; only the Home case
-  // (the default, and also where an invite-failed message lands) does.
+  // Home is where the app opens by default. Clowder (index 0) is the
+  // container's natural resting scroll position — it's the first child —
+  // so this scrolls past it to Home on mount.
   useEffect(() => {
-    if (landing.landOnClowder) return;
     if (containerRef.current && homeRef.current) {
       containerRef.current.scrollLeft = homeRef.current.offsetLeft;
     }
-  }, [landing.landOnClowder]);
+  }, []);
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
@@ -63,8 +52,6 @@ export function SwipeShell({
             userId={userId}
             createdAt={createdAt}
             isActive={activeIndex === 1}
-            inviteFailedReason={inviteFailedReason}
-            onDismissInviteFailed={() => setInviteFailedReason(null)}
           />
         </div>
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">

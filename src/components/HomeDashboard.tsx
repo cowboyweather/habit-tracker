@@ -111,14 +111,10 @@ export function HomeDashboard({
   userId,
   createdAt,
   isActive,
-  inviteFailedReason,
-  onDismissInviteFailed,
 }: {
   userId: string;
   createdAt: string;
   isActive: boolean;
-  inviteFailedReason: string | null;
-  onDismissInviteFailed: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
@@ -451,19 +447,6 @@ export function HomeDashboard({
           </button>
         </form>
       </div>
-
-      {inviteFailedReason && (
-        <div className="flex items-center justify-between rounded-xl border border-line bg-card px-4 py-3">
-          <p className="text-sm text-ink">{inviteFailedReason}</p>
-          <button
-            type="button"
-            onClick={onDismissInviteFailed}
-            className="text-xs font-medium text-muted transition hover:text-ink"
-          >
-            dismiss
-          </button>
-        </div>
-      )}
 
       <NudgeBanner isActive={isActive} />
 

@@ -9,14 +9,6 @@ import type { ClowderMemberSummary } from "@/lib/clowder";
 
 const MICRO_SPRITE_SIZE = 32;
 
-// A plain variable, not inlined at each call site — TypeScript's lib.dom
-// types declare navigator.share as a required (non-optional) method, so
-// narrowing directly on `"share" in navigator` in an if/return leaves the
-// code after it with an uninhabitable (never) Navigator type.
-function supportsNativeShare(): boolean {
-  return typeof navigator !== "undefined" && "share" in navigator;
-}
-
 type ClowderGroup = {
   clowder_id: string;
   clowder_name: string;
@@ -71,9 +63,17 @@ export function ClowderPanel({
   const [createName, setCreateName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [copiedClowderId, setCopiedClowderId] = useState<string | null>(null);
-  const [linkCopiedClowderId, setLinkCopiedClowderId] = useState<
-    string | null
-  >(null);
+  // Governs which form is open. Only meaningful in the empty state (where
+  // "create" and "join" start as two bare buttons and only one form shows
+  // at a time) and for gating "create another" behind a button once
+  // already in a clowder — "join" is otherwise always a small permanent
+  // form there, not something worth hiding behind a tap.
+  const [formMode, setFormMode] = useState<"none" | "create" | "join">(
+    "none",
+  );
+  const [confirmingLeaveId, setConfirmingLeaveId] = useState<string | null>(
+    null,
+  );
 
   const todayKey = useMemo(() => toDateKey(startOfLocalDay(new Date())), []);
 
@@ -137,6 +137,7 @@ export function ClowderPanel({
       return;
     }
     setCreateName("");
+    setFormMode("none");
     refresh();
   }
 
@@ -154,6 +155,7 @@ export function ClowderPanel({
       return;
     }
     setJoinCode("");
+    setFormMode("none");
     refresh();
   }
 
@@ -179,20 +181,7 @@ export function ClowderPanel({
       setActionError("couldn't leave — try again.");
       return;
     }
-    refresh();
-  }
-
-  async function handleRegenerate(clowderId: string) {
-    setPending(true);
-    setActionError(null);
-    const { error } = await supabase.rpc("regenerate_clowder_invite_code", {
-      target_clowder_id: clowderId,
-    });
-    setPending(false);
-    if (error) {
-      setActionError("couldn't regenerate the code — try again.");
-      return;
-    }
+    setConfirmingLeaveId(null);
     refresh();
   }
 
@@ -205,32 +194,6 @@ export function ClowderPanel({
       // Clipboard access can fail (permissions, insecure context) — the
       // code is still visible on screen to copy by hand, so this is a
       // quiet no-op rather than a surfaced error.
-    }
-  }
-
-  async function handleShare(
-    clowderId: string,
-    clowderName: string,
-    code: string,
-  ) {
-    const url = `${window.location.origin}/join/${code}`;
-
-    if (supportsNativeShare()) {
-      try {
-        await navigator.share({ title: `join ${clowderName}`, url });
-      } catch {
-        // Cancelling the share sheet rejects the promise — not an error.
-      }
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setLinkCopiedClowderId(clowderId);
-      setTimeout(() => setLinkCopiedClowderId(null), 1500);
-    } catch {
-      // Same reasoning as handleCopy — the code is still visible to build
-      // the link from by hand, so a quiet no-op rather than an error.
     }
   }
 
@@ -289,20 +252,117 @@ export function ClowderPanel({
 
   const groups = groupByClowder(members);
 
+  function createForm(onCancel: () => void) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <label className={LABEL_CLASS} htmlFor="clowder-name">
+            create a clowder
+          </label>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-xs font-medium text-muted transition hover:text-ink"
+          >
+            cancel
+          </button>
+        </div>
+        <input
+          id="clowder-name"
+          type="text"
+          value={createName}
+          onChange={(e) => setCreateName(e.target.value)}
+          placeholder="e.g. sunday crew"
+          className={FIELD_CLASS}
+        />
+        <button
+          type="button"
+          disabled={pending || !createName.trim()}
+          onClick={handleCreate}
+          className="min-h-11 rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
+        >
+          create
+        </button>
+      </div>
+    );
+  }
+
+  function joinForm(onCancel?: () => void) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <label className={LABEL_CLASS} htmlFor="join-code">
+            join with a code
+          </label>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-xs font-medium text-muted transition hover:text-ink"
+            >
+              cancel
+            </button>
+          )}
+        </div>
+        <input
+          id="join-code"
+          type="text"
+          value={joinCode}
+          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+          placeholder="invite code"
+          className={`${FIELD_CLASS} font-mono uppercase tracking-[0.1em]`}
+        />
+        <button
+          type="button"
+          disabled={pending || !joinCode.trim()}
+          onClick={handleJoin}
+          className="min-h-11 rounded-xl border border-line text-ink transition hover:border-accent active:scale-[0.98] disabled:opacity-60"
+        >
+          join
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[420px] flex-col gap-8 px-4 pt-8 pb-24">
       <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
         clowder
       </h1>
 
-      {groups.length === 0 && (
-        <p className="text-sm text-muted">
-          join a clowder with friends and motivate each other! friends cannot
-          see what your habit goals are, but they can follow your progress.
-        </p>
-      )}
-
       {actionError && <p className="text-xs text-red-500/80">{actionError}</p>}
+
+      {groups.length === 0 && (
+        <>
+          {formMode === "none" && (
+            <div className="flex flex-col items-center gap-5 py-4 text-center">
+              <p className="text-sm text-muted">
+                join a clowder with friends and motivate each other! friends
+                cannot see what your habit goals are, but they can follow
+                your progress.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormMode("create")}
+                  className="min-h-11 rounded-xl bg-ink px-6 text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
+                >
+                  create
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormMode("join")}
+                  className="min-h-11 rounded-xl border border-line px-6 text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
+                >
+                  join
+                </button>
+              </div>
+            </div>
+          )}
+          {formMode === "create" && createForm(() => setFormMode("none"))}
+          {formMode === "join" && joinForm(() => setFormMode("none"))}
+        </>
+      )}
 
       {groups.map((group) => {
         const you = group.members.find((m) => m.is_you);
@@ -310,9 +370,38 @@ export function ClowderPanel({
 
         return (
           <div key={group.clowder_id} className="flex flex-col gap-4">
-            <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">
-              {group.clowder_name}
-            </h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+                {group.clowder_name}
+              </h2>
+              {confirmingLeaveId === group.clowder_id ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => handleLeave(group.clowder_id)}
+                    className="text-xs font-medium text-red-500/80 transition hover:text-red-500 disabled:opacity-60"
+                  >
+                    confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingLeaveId(null)}
+                    className="text-xs font-medium text-muted transition hover:text-ink"
+                  >
+                    cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingLeaveId(group.clowder_id)}
+                  className="shrink-0 text-xs font-medium text-muted transition hover:text-ink"
+                >
+                  leave
+                </button>
+              )}
+            </div>
 
             <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
               <div className="flex items-center justify-between">
@@ -322,43 +411,16 @@ export function ClowderPanel({
                     {group.invite_code}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleCopy(group.clowder_id, group.invite_code)
-                    }
-                    className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent"
-                  >
-                    {copiedClowderId === group.clowder_id ? "copied" : "copy"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => handleRegenerate(group.clowder_id)}
-                    className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent hover:text-ink disabled:opacity-60"
-                  >
-                    regenerate
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCopy(group.clowder_id, group.invite_code)
+                  }
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent"
+                >
+                  {copiedClowderId === group.clowder_id ? "copied" : "copy"}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  handleShare(
-                    group.clowder_id,
-                    group.clowder_name,
-                    group.invite_code,
-                  )
-                }
-                className="min-h-11 w-full rounded-xl border border-line text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
-              >
-                {linkCopiedClowderId === group.clowder_id
-                  ? "link copied"
-                  : supportsNativeShare()
-                    ? "share invite link"
-                    : "copy invite link"}
-              </button>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -372,66 +434,26 @@ export function ClowderPanel({
                 />
               ))}
             </div>
-
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => handleLeave(group.clowder_id)}
-              className="self-start text-xs font-medium text-muted transition hover:text-ink disabled:opacity-60"
-            >
-              leave clowder
-            </button>
           </div>
         );
       })}
 
-      <div
-        className={`flex flex-col gap-8 ${groups.length > 0 ? "border-t border-line pt-8" : ""}`}
-      >
-        <div className="flex flex-col gap-3">
-          <label className={LABEL_CLASS} htmlFor="clowder-name">
-            start one
-          </label>
-          <input
-            id="clowder-name"
-            type="text"
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            placeholder="e.g. sunday crew"
-            className={FIELD_CLASS}
-          />
-          <button
-            type="button"
-            disabled={pending || !createName.trim()}
-            onClick={handleCreate}
-            className="min-h-11 rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
-          >
-            create a clowder
-          </button>
+      {groups.length > 0 && (
+        <div className="flex flex-col gap-6 border-t border-line pt-8">
+          {joinForm()}
+          {formMode === "create" ? (
+            createForm(() => setFormMode("none"))
+          ) : (
+            <button
+              type="button"
+              onClick={() => setFormMode("create")}
+              className="min-h-11 self-start rounded-xl border border-line px-5 text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
+            >
+              create a clowder
+            </button>
+          )}
         </div>
-
-        <div className="flex flex-col gap-3">
-          <label className={LABEL_CLASS} htmlFor="join-code">
-            or join one
-          </label>
-          <input
-            id="join-code"
-            type="text"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="invite code"
-            className={`${FIELD_CLASS} font-mono uppercase tracking-[0.1em]`}
-          />
-          <button
-            type="button"
-            disabled={pending || !joinCode.trim()}
-            onClick={handleJoin}
-            className="min-h-11 rounded-xl border border-line text-ink transition hover:border-accent active:scale-[0.98] disabled:opacity-60"
-          >
-            join with code
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

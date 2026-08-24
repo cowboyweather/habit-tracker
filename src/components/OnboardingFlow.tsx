@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import CatSprite from "@/components/CatSprite";
 import { LABEL_CLASS, FIELD_CLASS } from "@/lib/form-styles";
 import { saveCatName, saveHabits } from "@/app/onboarding/actions";
-import { redeemPendingInvite } from "@/app/join/actions";
-import { markLandOnClowder, markInviteFailed } from "@/lib/swipe-landing";
 
 const SUGGESTIONS = ["Exercise", "Read", "Sleep by 11"];
 const MAX_HABITS = 5;
@@ -82,19 +80,6 @@ export function OnboardingFlow() {
     startTransition(async () => {
       try {
         await saveHabits(habitNames);
-        // Whatever invite code was pending (from visiting /join/<code>
-        // before signing up) gets redeemed now that there's finally an
-        // account to attach a clowder membership to. Landing on Clowder
-        // (rather than Home) after a successful join is signaled to
-        // SwipeShell via a cookie; a failure lands on Home as usual with
-        // a plain explanation, not an error page — they just made an
-        // account, that shouldn't feel broken.
-        const invite = await redeemPendingInvite();
-        if (invite.joined) {
-          markLandOnClowder();
-        } else if (invite.reason) {
-          markInviteFailed(invite.reason);
-        }
         router.push("/");
       } catch (e) {
         setError(e instanceof Error ? e.message : "something went wrong.");
