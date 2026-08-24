@@ -423,7 +423,7 @@ export function CalendarPanel({
       style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
     >
       <h1 className="text-center text-3xl font-semibold tracking-[-0.02em] text-ink">
-        calendar
+        {MONTH_NAMES[viewedMonth]}
       </h1>
 
       {loggedDayCount === 0 && (
@@ -457,9 +457,7 @@ export function CalendarPanel({
             ‹
           </button>
           <div className="text-center">
-            <p className="font-semibold text-ink">
-              {MONTH_NAMES[viewedMonth]} {viewedYear}
-            </p>
+            <p className="font-semibold text-ink">{viewedYear}</p>
             <p className="text-xs text-muted">
               {monthSummary.withActivity} of {monthSummary.trackable} days
             </p>
