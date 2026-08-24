@@ -5,9 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { MemberRing } from "@/components/MemberRing";
+import { startOfLocalDay, toDateKey } from "@/lib/date";
 import type { ClowderMemberSummary } from "@/lib/clowder";
 
-export function ClowderDetail({ clowderId }: { clowderId: string }) {
+export function ClowderDetail({
+  clowderId,
+  userId,
+}: {
+  clowderId: string;
+  userId: string;
+}) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
@@ -19,25 +26,43 @@ export function ClowderDetail({ clowderId }: { clowderId: string }) {
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [openMember, setOpenMember] = useState<ClowderMemberSummary | null>(
+    null,
+  );
+  // Nudges are global (one per person per day, not per clowder), so this is
+  // a flat set of recipient ids, same as the pre-redesign ClowderPanel.
+  const [nudgedToday, setNudgedToday] = useState<Set<string>>(new Set());
+
+  const todayKey = useMemo(() => toDateKey(startOfLocalDay(new Date())), []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const { data, error } = await supabase.rpc("get_my_clowder_summary");
+      const [summaryRes, nudgesRes] = await Promise.all([
+        supabase.rpc("get_my_clowder_summary"),
+        supabase
+          .from("clowder_nudges")
+          .select("to_user_id")
+          .eq("from_user_id", userId)
+          .eq("nudge_date", todayKey),
+      ]);
 
       if (cancelled) return;
 
-      if (error) {
+      if (summaryRes.error) {
         setLoadError("couldn't load this clowder.");
         setLoading(false);
         return;
       }
 
-      const mine = ((data as ClowderMemberSummary[]) ?? []).filter(
+      const mine = ((summaryRes.data as ClowderMemberSummary[]) ?? []).filter(
         (m) => m.clowder_id === clowderId,
       );
       setMembers(mine);
+      setNudgedToday(
+        new Set((nudgesRes.data ?? []).map((r) => r.to_user_id as string)),
+      );
       setLoading(false);
     }
 
@@ -45,7 +70,7 @@ export function ClowderDetail({ clowderId }: { clowderId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [supabase, clowderId, retryToken]);
+  }, [supabase, clowderId, userId, todayKey, retryToken]);
 
   function retry() {
     setLoading(true);
@@ -71,6 +96,24 @@ export function ClowderDetail({ clowderId }: { clowderId: string }) {
       return;
     }
     router.push("/clowders");
+  }
+
+  async function handleNudge(toUserId: string) {
+    setActionError(null);
+    setNudgedToday((prev) => new Set(prev).add(toUserId)); // optimistic
+    const { error } = await supabase.from("clowder_nudges").insert({
+      from_user_id: userId,
+      to_user_id: toUserId,
+      nudge_date: todayKey,
+    });
+    if (error) {
+      setNudgedToday((prev) => {
+        const next = new Set(prev);
+        next.delete(toUserId);
+        return next;
+      });
+      setActionError("couldn't send that nudge.");
+    }
   }
 
   async function handleCopy(code: string) {
@@ -194,9 +237,11 @@ export function ClowderDetail({ clowderId }: { clowderId: string }) {
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
         {members.map((m) => (
-          <div
+          <button
             key={m.user_id}
-            className="flex flex-col items-center gap-1.5 pt-3 text-center"
+            type="button"
+            onClick={() => setOpenMember(m)}
+            className="flex flex-col items-center gap-1.5 pt-3 text-center transition active:scale-95"
           >
             <MemberRing
               expression={m.expression}
@@ -209,7 +254,7 @@ export function ClowderDetail({ clowderId }: { clowderId: string }) {
             <p className="w-full truncate text-[11px] text-muted">
               {m.username}
             </p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -226,6 +271,70 @@ export function ClowderDetail({ clowderId }: { clowderId: string }) {
           {copied ? "copied" : "copy"}
         </button>
       </p>
+
+      {openMember && (
+        <MemberSheet
+          member={openMember}
+          nudged={nudgedToday.has(openMember.user_id)}
+          onNudge={() => handleNudge(openMember.user_id)}
+          onClose={() => setOpenMember(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function MemberSheet({
+  member,
+  nudged,
+  onNudge,
+  onClose,
+}: {
+  member: ClowderMemberSummary;
+  nudged: boolean;
+  onNudge: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full max-w-[360px] flex-col items-center gap-4 rounded-t-3xl bg-card p-6 pb-8 sm:rounded-3xl"
+        style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <MemberRing
+          expression={member.expression}
+          rate={member.trailing_rate}
+          isLeader={member.is_leader}
+          size={72}
+        />
+        <div className="flex flex-col items-center gap-0.5 text-center">
+          <p className="text-base font-medium text-ink">{member.cat_name}</p>
+          <p className="text-sm text-muted">{member.username}</p>
+        </div>
+
+        {!member.is_you && (
+          <button
+            type="button"
+            disabled={nudged}
+            onClick={onNudge}
+            className="min-h-11 w-full rounded-xl bg-ink text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98] disabled:opacity-60"
+          >
+            {nudged ? "nudged" : "nudge"}
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs font-medium text-muted transition hover:text-ink"
+        >
+          close
+        </button>
+      </div>
     </div>
   );
 }

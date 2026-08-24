@@ -26,7 +26,7 @@ Last updated: 24 August 2026
 - Insights: completion by weekday, habit correlations and season-over-season drift once there's enough data
 - Season recap: full-bleed screen shown once after a season ends, in the outgoing season's palette — check-ins, best streak, strongest weekday, completion rate, a fixed title placeholder, warmer copy for a thin season. Dev-only preview for any past season via the season-theme widget
 - Clowders: belong to up to 5 at once (friends, family, etc.), restructured into two real pages. `/clowders` is a light list — each clowder as a tappable house icon (one shared placeholder for now) and name, "+" to create or join another, up to 8 members per clowder. `/clowders/[id]` is the detail page: clowder name as the title, invite code shown small and unobtrusive, members in a responsive grid (2 up to 4 per row) each showing their cat with a trailing-7-day progress ring wrapped around it (closed rings get a checkmark badge, not just a full arc, so they read at a glance), cat name, and username. The leader — whoever created the clowder, or the longest-standing remaining member if they've left — gets a crown, and only they see the settings link (rename, for now; enforced server-side, not just hidden). Leaving asks for confirmation and auto-deletes an emptied clowder. Each clowder's invite code is permanent, assigned once at creation, no regenerate. Zero-clowder state is still just two buttons, create or join, one form open at a time
-- Nudging a clowder-mate currently has no UI trigger — the redesigned member card deliberately shows only the ring, cat name, and username, which dropped the per-member nudge button along with logged-today and streak. Receiving still works (the "X nudged you" banner on Home), sending doesn't; see Phase 5
+- Nudging a clowder-mate: tap their cat in the member grid to open a small sheet (ring, cat name, username, and a nudge button that disables once used today) rather than a button sitting in the grid itself
 
 **Not built yet:** everything below.
 
@@ -133,7 +133,7 @@ visible, which means revisiting the security policies.
 - [x] Rename the Clowder page title to "clowders" (plural)
 - [x] Clowder detail page — a separate `/clowders/[id]` route listing each member's cat, cat name, and username, with a progress ring wrapped around the cat sprite itself. Same trailing-7-day figure that drives the cat's mood. Reads clearly at ~44px in a responsive grid, with a closed ring getting a checkmark badge rather than relying on the arc alone to read as "done" vs. 95%
 - [x] Clowder leader — derived from `created_by`, crown shown to everyone, settings (rename) visible and enforced leader-only
-- [ ] Give nudging a new home in the redesigned member card — the send-nudge button was dropped when the card was reduced to ring/cat name/username only; receiving still works, sending currently doesn't
+- [x] Give nudging a new home in the redesigned member card — tapping a member's cat opens a small sheet (ring, cat name, username, and a nudge button that disables once used today) rather than putting a button back in the grid itself
 - [ ] Different house icon per clowder — every clowder currently shares one placeholder icon on the `/clowders` list
 - [ ] Rate-limiting on `get_clowder_preview` — not needed at current scale, but it's the one unauthenticated surface in the app and the obvious target for a brute-force scan of the invite code space if usage grows
 

@@ -15,5 +15,5 @@ export default async function ClowderDetailPage({
 
   if (!user) redirect("/login");
 
-  return <ClowderDetail clowderId={id} />;
+  return <ClowderDetail clowderId={id} userId={user.id} />;
 }
