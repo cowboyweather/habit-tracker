@@ -10,6 +10,7 @@ import CatSprite, {
 } from "@/components/CatSprite";
 import { logout } from "@/lib/auth-actions";
 import { trailingWeekRate } from "@/lib/habit-progress";
+import { NudgeBanner } from "@/components/NudgeBanner";
 import {
   addDays,
   daysBetween,
@@ -443,6 +444,8 @@ export function HomeDashboard({
           </button>
         </form>
       </div>
+
+      <NudgeBanner isActive={isActive} />
 
       <div className="rounded-2xl bg-ink p-5">
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-sky/70">

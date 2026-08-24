@@ -13,7 +13,7 @@ Last updated: 20 August 2026
 
 - Next.js + TypeScript + Tailwind, deployed on Vercel, auto-deploys on push to `main`
 - Supabase Postgres with row-level security on every table
-- Five tables: `seasons` (seeded through 2027), `habits`, `logs`, `pets`, `titles`
+- Eight tables: `seasons` (seeded through 2027), `habits`, `logs`, `pets`, `titles`, `clowders`, `clowder_members`, `clowder_nudges`
 - Username + password auth, signup, login, sign-out
 - Onboarding: name the cat, add first habits
 - Home page: date and season line, greeting, title card, cat panel, weekly tracker
@@ -25,6 +25,7 @@ Last updated: 20 August 2026
 - Calendar: month view shaded by completion, per-habit progress rings, today button, unlimited retroactive editing via the tap-to-expand day detail
 - Insights: completion by weekday, habit correlations and season-over-season drift once there's enough data
 - Season recap: full-bleed screen shown once after a season ends, in the outgoing season's palette — check-ins, best streak, strongest weekday, completion rate, a fixed title placeholder, warmer copy for a thin season. Dev-only preview for any past season via the season-theme widget
+- Clowders: create or join (invite code) a group of up to 8, member list with micro cat sprites showing name/mood/today's status/streak, one nudge per person per day with a visible "X nudged you" on Home, regenerate the invite code, leave (auto-deletes an emptied clowder)
 
 **Not built yet:** everything below.
 
@@ -47,6 +48,8 @@ Recorded so they don't get relitigated in future sessions.
 | Retroactive editing | Unlimited — no bound on how far back a day can be edited. Denominator (habits trackable that day) still bounded by created_at/archived_at; a day that ends up over 100% from backfilled logs shades as fully complete rather than being capped or hidden |
 | Season recap "seen" tracking | Reuses the existing `titles` table (period_type='season') rather than a new one — a row is both the seen-record and the stored title/stats snapshot, which is also what Phase 3's "reopenable cards" needs. Written on dismiss, not on load, so closing the tab before dismissing doesn't burn the one-time recap — seeing it twice is an accepted failure mode |
 | Season recap eligibility | Only the most-recently-ended season ever triggers, no backlog for a longer absence. Requires ≥1 real log dated in that season (backfilled logs count — if they logged it, it's theirs). A season counts as "thin" if completion rate is under 25% (mirrors the cat's scruffy floor) OR total check-ins are under 15 — the count check exists because completion rate alone reads as artificially high when a habit is backfilled into a season it didn't exist during (zero trackable days that season, so the ratio defaults to 100%) |
+| Clowder security model | `habits`/`logs`/`pets` RLS is untouched — a clowder-mate reads cross-user data only through `SECURITY DEFINER` functions that bypass RLS internally and return a narrow, pre-reduced field set (username, cat name, mood expression, logged-today, best streak). `clowders`/`clowder_members` have no direct read/write policies at all for regular users (only `clowder_members` DELETE, for leaving) — creation, joining, and reads are function-mediated so the 8-cap, one-clowder-per-user, and invite-code lookup live in one auditable place. One clowder at a time (DB-enforced via a unique constraint on `clowder_members.user_id`, not just app logic). Any member can regenerate the invite code, no owner/admin concept. Confirmed adversarially with two real accounts directly against the API, not just asserted — see commit history for the test transcript |
+| Supabase default-privilege gotcha | New Postgres functions in `public` get `EXECUTE` granted to `authenticated` automatically (`alter default privileges ... grant execute on functions to authenticated`, part of Supabase's project bootstrap) — separately from whatever `PUBLIC` (the pseudo-role) has. `revoke all on function x from public` alone does **not** revoke that separate grant. Found via adversarial testing: two helper functions meant to be unreachable were directly callable by any authenticated user until the revoke explicitly named `anon, authenticated` too. Every function-level revoke in the clowders migration is written the explicit way now — worth remembering for any future `SECURITY DEFINER` function |
 
 ---
 
@@ -110,10 +113,10 @@ The viral surface. Not worth building until there's real data to describe.
 Deliberately last. It's the only feature that requires other people's rows to be
 visible, which means revisiting the security policies.
 
-- [ ] Friends: invite, accept, list
-- [ ] Friends' cats visible, their habits private
-- [ ] Clowders: small cooperative groups, shared goal, no leaderboard
-- [ ] One nudge per person per day, then the app stops you
+- [x] Friends: invite, accept, list — built directly as clowder membership (invite code to join, member list) rather than a separate pairwise friends layer; no standalone friend-request flow exists
+- [x] Friends' cats visible, their habits private
+- [x] Clowders: small cooperative groups, shared goal, no leaderboard — no "shared goal" concept built yet, just the group itself
+- [x] One nudge per person per day, then the app stops you
 - [ ] Hemisphere on the profile, so clan members show opposite seasons
 
 ---
