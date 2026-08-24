@@ -26,6 +26,7 @@ Last updated: 20 August 2026
 - Insights: completion by weekday, habit correlations and season-over-season drift once there's enough data
 - Season recap: full-bleed screen shown once after a season ends, in the outgoing season's palette — check-ins, best streak, strongest weekday, completion rate, a fixed title placeholder, warmer copy for a thin season. Dev-only preview for any past season via the season-theme widget
 - Clowders: belong to up to 5 at once (friends, family, etc.), each its own section with name/invite code/member list, up to 8 members per clowder, micro cat sprites showing name/mood/today's status/streak, one nudge per person per day (global across all shared clowders) with a visible "X nudged you" on Home, regenerate the invite code per clowder, leave one without affecting the others (auto-deletes an emptied clowder)
+- Shareable clowder invite links (`/join/<code>`): native share sheet where supported, clipboard fallback otherwise. Shows the clowder's name and member count before sign-in. Survives signup + onboarding via a cookie (not sessionStorage, so it isn't lost if the link was opened in an in-app browser and reopened in the system one), redeemed right after onboarding finishes
 
 **Not built yet:** everything below.
 
@@ -53,6 +54,8 @@ Recorded so they don't get relitigated in future sessions.
 | Supabase default-privilege gotcha | New Postgres functions in `public` get `EXECUTE` granted to `authenticated` automatically (`alter default privileges ... grant execute on functions to authenticated`, part of Supabase's project bootstrap) — separately from whatever `PUBLIC` (the pseudo-role) has. `revoke all on function x from public` alone does **not** revoke that separate grant. Found via adversarial testing: two helper functions meant to be unreachable were directly callable by any authenticated user until the revoke explicitly named `anon, authenticated` too. Every function-level revoke in the clowders migrations is written the explicit way now — worth remembering for any future `SECURITY DEFINER` function |
 | PL/pgSQL `returns table(...)` column-name shadowing | A function declared `returns table (clowder_id uuid, ...)` has `clowder_id` in scope as an output parameter for its *entire* body — an unqualified `clowder_id` anywhere inside, including inside a subquery, is ambiguous against a same-named table column and Postgres rejects it outright rather than guessing. Broke `get_my_clowder_summary()` completely (every call errored) until the subquery was qualified (`cm.clowder_id`). Only bites functions whose `returns table` columns happen to share a name with a column they also query — worth double-checking whenever both coincide |
 | RLS DELETE needs SELECT visibility too | A table with RLS enabled and a DELETE policy but *no* SELECT policy will silently delete nothing — Postgres needs a row to be visible via SELECT before DELETE/UPDATE can act on it, separate from whatever the DELETE policy's own `USING` clause allows. `clowder_members` had exactly this shape (deliberately no SELECT policy; reads meant to go through `get_my_clowder_summary()` only) and "leave a clowder" was a silent no-op — 200/204 success, zero rows affected, no error — since the feature was first built. Never caught because leaving was never actually tested end-to-end until the multi-clowder work forced a real adversarial pass. Fixed with a SELECT policy scoped to `user_id = auth.uid()`, which doesn't loosen anything a client couldn't already reconstruct from the summary function |
+| Invite link cookie, not sessionStorage | The pending invite code is stored in an httpOnly cookie (`pending_invite_code`, 7-day expiry, set by `proxy.ts` on any `/join/<code>` visit), not sessionStorage — a link opened in an in-app browser (Instagram, etc.) and reopened in the system browser loses sessionStorage entirely, and that's a common path for a link shared in a DM. Redeemed once via a server action right after onboarding finishes (not on load, not on the join page itself for a logged-out visitor), and cleared unconditionally whether it succeeds or fails |
+| `get_clowder_preview` is the first anon-callable function | Deliberately narrow (name + member count only, no ids), and returns zero rows for an invalid code rather than an error — an invalid code and a nonexistent one are indistinguishable to the caller, so it can't be used to enumerate which codes exist. No rate limiting yet; noted in Phase 5 as a future consideration if this scales past a small trusted base |
 
 ---
 
@@ -108,6 +111,7 @@ The viral surface. Not worth building until there's real data to describe.
 - [ ] Notes on a session (parked in the original spec, still wanted)
 - [ ] Reminders — needs real thought, web push on iOS is fiddly
 - [ ] Time zone handling for travel
+- [ ] Cat colorways — eight presets, chosen during onboarding and changeable any time from settings. Palette swap on the existing sprite, no new sprite work (coat color is already just a palette lookup in `CatSprite.tsx`). One preset must match the real reference cat: brown/grey tabby, white blaze up the face, white bib and paws, green eyes. Placeholder art for all eight until the pixel artist redraws them. Stored on `pets`. Visible to clowder members — that's the point of customizing it — so this is another field crossing the user boundary in the same narrow, function-mediated way as the rest of Clowders, not a new access pattern
 
 ---
 
@@ -124,6 +128,9 @@ visible, which means revisiting the security policies.
 - [ ] Clowder icons — a small image or emblem per clowder
 - [ ] Shared clowder goals — a collective target the group works toward together
 - [ ] Per-clowder habit visibility setting, default off. Opt in to show your habit names to a specific clowder. Expands what crosses the user boundary beyond the current name/mood/streak/today-status set, so it needs its own adversarial testing pass when built, same rigor as the rest of Clowders
+- [ ] Rename the Clowder page title to "clowders" (plural)
+- [ ] Clowder detail page — tap a clowder to open a page listing each member's cat, cat name, and username, with a progress ring wrapped around the cat sprite itself (not sitting beside it — the pet is the indicator, no bare numbers next to each other). Same trailing-7-day figure that drives the cat's mood, reusing the ring component already built for the calendar page. Must read clearly at ~40px in a member list, with a closed ring visually distinct from 95%
+- [ ] Rate-limiting on `get_clowder_preview` — not needed at current scale, but it's the one unauthenticated surface in the app and the obvious target for a brute-force scan of the invite code space if usage grows
 
 ---
 

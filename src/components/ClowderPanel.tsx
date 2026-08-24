@@ -9,6 +9,14 @@ import type { ClowderMemberSummary } from "@/lib/clowder";
 
 const MICRO_SPRITE_SIZE = 32;
 
+// A plain variable, not inlined at each call site — TypeScript's lib.dom
+// types declare navigator.share as a required (non-optional) method, so
+// narrowing directly on `"share" in navigator` in an if/return leaves the
+// code after it with an uninhabitable (never) Navigator type.
+function supportsNativeShare(): boolean {
+  return typeof navigator !== "undefined" && "share" in navigator;
+}
+
 type ClowderGroup = {
   clowder_id: string;
   clowder_name: string;
@@ -63,6 +71,9 @@ export function ClowderPanel({
   const [createName, setCreateName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [copiedClowderId, setCopiedClowderId] = useState<string | null>(null);
+  const [linkCopiedClowderId, setLinkCopiedClowderId] = useState<
+    string | null
+  >(null);
 
   const todayKey = useMemo(() => toDateKey(startOfLocalDay(new Date())), []);
 
@@ -197,6 +208,32 @@ export function ClowderPanel({
     }
   }
 
+  async function handleShare(
+    clowderId: string,
+    clowderName: string,
+    code: string,
+  ) {
+    const url = `${window.location.origin}/join/${code}`;
+
+    if (supportsNativeShare()) {
+      try {
+        await navigator.share({ title: `join ${clowderName}`, url });
+      } catch {
+        // Cancelling the share sheet rejects the promise — not an error.
+      }
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopiedClowderId(clowderId);
+      setTimeout(() => setLinkCopiedClowderId(null), 1500);
+    } catch {
+      // Same reasoning as handleCopy — the code is still visible to build
+      // the link from by hand, so a quiet no-op rather than an error.
+    }
+  }
+
   async function handleNudge(toUserId: string) {
     setActionError(null);
     setNudgedToday((prev) => new Set(prev).add(toUserId)); // optimistic
@@ -277,30 +314,51 @@ export function ClowderPanel({
               {group.clowder_name}
             </h2>
 
-            <div className="flex items-center justify-between rounded-2xl border border-line bg-card p-4">
-              <div className="flex flex-col gap-1">
-                <p className={LABEL_CLASS}>invite code</p>
-                <p className="font-mono text-lg tracking-[0.15em] text-ink">
-                  {group.invite_code}
-                </p>
+            <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <p className={LABEL_CLASS}>invite code</p>
+                  <p className="font-mono text-lg tracking-[0.15em] text-ink">
+                    {group.invite_code}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleCopy(group.clowder_id, group.invite_code)
+                    }
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent"
+                  >
+                    {copiedClowderId === group.clowder_id ? "copied" : "copy"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => handleRegenerate(group.clowder_id)}
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent hover:text-ink disabled:opacity-60"
+                  >
+                    regenerate
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleCopy(group.clowder_id, group.invite_code)}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent"
-                >
-                  {copiedClowderId === group.clowder_id ? "copied" : "copy"}
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => handleRegenerate(group.clowder_id)}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent hover:text-ink disabled:opacity-60"
-                >
-                  regenerate
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  handleShare(
+                    group.clowder_id,
+                    group.clowder_name,
+                    group.invite_code,
+                  )
+                }
+                className="min-h-11 w-full rounded-xl border border-line text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
+              >
+                {linkCopiedClowderId === group.clowder_id
+                  ? "link copied"
+                  : supportsNativeShare()
+                    ? "share invite link"
+                    : "copy invite link"}
+              </button>
             </div>
 
             <div className="flex flex-col gap-3">
