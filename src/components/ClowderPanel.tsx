@@ -9,6 +9,36 @@ import type { ClowderMemberSummary } from "@/lib/clowder";
 
 const MICRO_SPRITE_SIZE = 32;
 
+type ClowderGroup = {
+  clowder_id: string;
+  clowder_name: string;
+  invite_code: string;
+  members: ClowderMemberSummary[];
+};
+
+// get_my_clowder_summary() returns one flat row per (clowder, member) pair
+// across every clowder the caller belongs to — this groups it back into
+// sections for rendering. Map preserves insertion order, and the query is
+// already ordered by clowder creation, so groups come out in that order
+// with no extra sort needed.
+function groupByClowder(members: ClowderMemberSummary[]): ClowderGroup[] {
+  const map = new Map<string, ClowderGroup>();
+  for (const m of members) {
+    let group = map.get(m.clowder_id);
+    if (!group) {
+      group = {
+        clowder_id: m.clowder_id,
+        clowder_name: m.clowder_name,
+        invite_code: m.invite_code,
+        members: [],
+      };
+      map.set(m.clowder_id, group);
+    }
+    group.members.push(m);
+  }
+  return Array.from(map.values());
+}
+
 export function ClowderPanel({
   userId,
   isActive,
@@ -20,6 +50,10 @@ export function ClowderPanel({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [members, setMembers] = useState<ClowderMemberSummary[]>([]);
+  // Nudges are global (one per person per day, not per clowder), so this is
+  // a flat set of recipient ids regardless of which clowder section they
+  // appear in — the same person showing up in two of your clowders still
+  // shares one nudge state.
   const [nudgedToday, setNudgedToday] = useState<Set<string>>(new Set());
   const [retryToken, setRetryToken] = useState(0);
 
@@ -28,13 +62,10 @@ export function ClowderPanel({
 
   const [createName, setCreateName] = useState("");
   const [joinCode, setJoinCode] = useState("");
-  const [copyLabel, setCopyLabel] = useState("copy");
+  const [copiedClowderId, setCopiedClowderId] = useState<string | null>(null);
 
   const todayKey = useMemo(() => toDateKey(startOfLocalDay(new Date())), []);
 
-  // Refetches every time this panel actually becomes visible, matching
-  // Calendar/Insights/Home — a nudge sent or a clowder joined elsewhere
-  // shouldn't go stale until a manual reload.
   useEffect(() => {
     if (!isActive) return;
 
@@ -53,7 +84,7 @@ export function ClowderPanel({
       if (cancelled) return;
 
       if (summaryRes.error) {
-        setLoadError("couldn't load your clowder.");
+        setLoadError("couldn't load your clowders.");
         setLoading(false);
         return;
       }
@@ -115,13 +146,16 @@ export function ClowderPanel({
     refresh();
   }
 
-  async function handleLeave() {
+  async function handleLeave(clowderId: string) {
     setPending(true);
     setActionError(null);
+    // Scoped to this one clowder — user_id alone is no longer unique to a
+    // single membership row now that someone can be in several.
     const { error } = await supabase
       .from("clowder_members")
       .delete()
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("clowder_id", clowderId);
     setPending(false);
     if (error) {
       setActionError("couldn't leave — try again.");
@@ -130,10 +164,12 @@ export function ClowderPanel({
     refresh();
   }
 
-  async function handleRegenerate() {
+  async function handleRegenerate(clowderId: string) {
     setPending(true);
     setActionError(null);
-    const { error } = await supabase.rpc("regenerate_clowder_invite_code");
+    const { error } = await supabase.rpc("regenerate_clowder_invite_code", {
+      target_clowder_id: clowderId,
+    });
     setPending(false);
     if (error) {
       setActionError("couldn't regenerate the code — try again.");
@@ -142,11 +178,11 @@ export function ClowderPanel({
     refresh();
   }
 
-  async function handleCopy(code: string) {
+  async function handleCopy(clowderId: string, code: string) {
     try {
       await navigator.clipboard.writeText(code);
-      setCopyLabel("copied");
-      setTimeout(() => setCopyLabel("copy"), 1500);
+      setCopiedClowderId(clowderId);
+      setTimeout(() => setCopiedClowderId(null), 1500);
     } catch {
       // Clipboard access can fail (permissions, insecure context) — the
       // code is still visible on screen to copy by hand, so this is a
@@ -207,21 +243,86 @@ export function ClowderPanel({
     );
   }
 
-  if (members.length === 0) {
-    return (
-      <div className="mx-auto flex w-full max-w-[420px] flex-col gap-8 px-4 pt-8 pb-24">
-        <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-          clowder
-        </h1>
+  const groups = groupByClowder(members);
+
+  return (
+    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-8 px-4 pt-8 pb-24">
+      <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
+        clowder
+      </h1>
+
+      {groups.length === 0 && (
         <p className="text-sm text-muted">
           join a clowder with friends and motivate each other! friends cannot
           see what your habit goals are, but they can follow your progress.
         </p>
+      )}
 
-        {actionError && (
-          <p className="text-xs text-red-500/80">{actionError}</p>
-        )}
+      {actionError && <p className="text-xs text-red-500/80">{actionError}</p>}
 
+      {groups.map((group) => {
+        const you = group.members.find((m) => m.is_you);
+        const others = group.members.filter((m) => !m.is_you);
+
+        return (
+          <div key={group.clowder_id} className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">
+              {group.clowder_name}
+            </h2>
+
+            <div className="flex items-center justify-between rounded-2xl border border-line bg-card p-4">
+              <div className="flex flex-col gap-1">
+                <p className={LABEL_CLASS}>invite code</p>
+                <p className="font-mono text-lg tracking-[0.15em] text-ink">
+                  {group.invite_code}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(group.clowder_id, group.invite_code)}
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent"
+                >
+                  {copiedClowderId === group.clowder_id ? "copied" : "copy"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => handleRegenerate(group.clowder_id)}
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent hover:text-ink disabled:opacity-60"
+                >
+                  regenerate
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {you && <MemberRow member={you} nudged={false} onNudge={undefined} />}
+              {others.map((m) => (
+                <MemberRow
+                  key={m.user_id}
+                  member={m}
+                  nudged={nudgedToday.has(m.user_id)}
+                  onNudge={() => handleNudge(m.user_id)}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => handleLeave(group.clowder_id)}
+              className="self-start text-xs font-medium text-muted transition hover:text-ink disabled:opacity-60"
+            >
+              leave clowder
+            </button>
+          </div>
+        );
+      })}
+
+      <div
+        className={`flex flex-col gap-8 ${groups.length > 0 ? "border-t border-line pt-8" : ""}`}
+      >
         <div className="flex flex-col gap-3">
           <label className={LABEL_CLASS} htmlFor="clowder-name">
             start one
@@ -266,68 +367,6 @@ export function ClowderPanel({
           </button>
         </div>
       </div>
-    );
-  }
-
-  const you = members.find((m) => m.is_you);
-  const others = members.filter((m) => !m.is_you);
-
-  return (
-    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8 pb-24">
-      <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
-        {members[0].clowder_name}
-      </h1>
-
-      {actionError && <p className="text-xs text-red-500/80">{actionError}</p>}
-
-      <div className="flex items-center justify-between rounded-2xl border border-line bg-card p-4">
-        <div className="flex flex-col gap-1">
-          <p className={LABEL_CLASS}>invite code</p>
-          <p className="font-mono text-lg tracking-[0.15em] text-ink">
-            {members[0].invite_code}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleCopy(members[0].invite_code)}
-            className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink transition hover:border-accent"
-          >
-            {copyLabel}
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={handleRegenerate}
-            className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent hover:text-ink disabled:opacity-60"
-          >
-            regenerate
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {you && (
-          <MemberRow member={you} nudged={false} onNudge={undefined} />
-        )}
-        {others.map((m) => (
-          <MemberRow
-            key={m.user_id}
-            member={m}
-            nudged={nudgedToday.has(m.user_id)}
-            onNudge={() => handleNudge(m.user_id)}
-          />
-        ))}
-      </div>
-
-      <button
-        type="button"
-        disabled={pending}
-        onClick={handleLeave}
-        className="self-start text-xs font-medium text-muted transition hover:text-ink disabled:opacity-60"
-      >
-        leave clowder
-      </button>
     </div>
   );
 }
