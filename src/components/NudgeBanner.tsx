@@ -35,11 +35,12 @@ export function NudgeBanner({ isActive }: { isActive: boolean }) {
   async function dismiss(nudgeId: string) {
     const prev = nudges;
     setNudges((n) => n.filter((x) => x.nudge_id !== nudgeId));
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("clowder_nudges")
       .update({ seen_at: new Date().toISOString() })
-      .eq("id", nudgeId);
-    if (error) setNudges(prev);
+      .eq("id", nudgeId)
+      .select("id");
+    if (error || !data || data.length === 0) setNudges(prev);
   }
 
   if (nudges.length === 0) return null;

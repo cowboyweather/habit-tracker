@@ -186,17 +186,20 @@ export function CalendarPanel({
       return next;
     });
 
-    const { error } = await supabase.from("logs").upsert(
-      {
-        user_id: userId,
-        habit_id: habitId,
-        log_date: dateKey,
-        done: nextDone,
-      },
-      { onConflict: "habit_id,log_date" },
-    );
+    const { data, error } = await supabase
+      .from("logs")
+      .upsert(
+        {
+          user_id: userId,
+          habit_id: habitId,
+          log_date: dateKey,
+          done: nextDone,
+        },
+        { onConflict: "habit_id,log_date" },
+      )
+      .select("id");
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       setLogs(prevLogs);
       setToggleError("couldn't save that — try again.");
     }

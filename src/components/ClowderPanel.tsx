@@ -150,14 +150,21 @@ export function ClowderPanel({
     setPending(true);
     setActionError(null);
     // Scoped to this one clowder — user_id alone is no longer unique to a
-    // single membership row now that someone can be in several.
-    const { error } = await supabase
+    // single membership row now that someone can be in several. Selects
+    // back what it deleted rather than trusting a null error alone — this
+    // exact call silently deleted nothing for a long time (RLS DELETE
+    // needs SELECT-level visibility on a row to act on it, which this
+    // table didn't have), with error always null and no way to tell from
+    // here. The policy gap is fixed, but this check is what would have
+    // caught it, and what stands as defense-in-depth if it ever regresses.
+    const { data, error } = await supabase
       .from("clowder_members")
       .delete()
       .eq("user_id", userId)
-      .eq("clowder_id", clowderId);
+      .eq("clowder_id", clowderId)
+      .select("id");
     setPending(false);
-    if (error) {
+    if (error || !data || data.length === 0) {
       setActionError("couldn't leave — try again.");
       return;
     }

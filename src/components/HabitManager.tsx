@@ -99,12 +99,13 @@ export function HabitManager({ userId }: { userId: string }) {
       prev.map((h) => (h.id === id ? { ...h, name: trimmed } : h)),
     );
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("habits")
       .update({ name: trimmed })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       setHabits(prevHabits);
       setError("couldn't rename that habit.");
     }
@@ -114,12 +115,13 @@ export function HabitManager({ userId }: { userId: string }) {
     const prevHabits = habits;
     setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, color } : h)));
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("habits")
       .update({ color })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       setHabits(prevHabits);
       setError("couldn't change that color.");
     }
@@ -131,12 +133,13 @@ export function HabitManager({ userId }: { userId: string }) {
       prev.map((h) => (h.id === id ? { ...h, target_type: targetType } : h)),
     );
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("habits")
       .update({ target_type: targetType })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       setHabits(prevHabits);
       setError("couldn't change that habit's type.");
     }
@@ -150,12 +153,13 @@ export function HabitManager({ userId }: { userId: string }) {
       prev.map((h) => (h.id === id ? { ...h, target_count: parsed } : h)),
     );
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("habits")
       .update({ target_count: parsed })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       setHabits(prevHabits);
       setError("couldn't update that target.");
     }
@@ -178,11 +182,15 @@ export function HabitManager({ userId }: { userId: string }) {
 
     const results = await Promise.all(
       renumbered.map((h) =>
-        supabase.from("habits").update({ position: h.position }).eq("id", h.id),
+        supabase
+          .from("habits")
+          .update({ position: h.position })
+          .eq("id", h.id)
+          .select("id"),
       ),
     );
 
-    if (results.some((r) => r.error)) {
+    if (results.some((r) => r.error || !r.data || r.data.length === 0)) {
       setHabits(prevHabits);
       setError("couldn't reorder — try again.");
     }
@@ -207,13 +215,18 @@ export function HabitManager({ userId }: { userId: string }) {
       supabase
         .from("habits")
         .update({ archived: true, archived_at: new Date().toISOString() })
-        .eq("id", id),
+        .eq("id", id)
+        .select("id"),
       ...remainingActive.map((h) =>
-        supabase.from("habits").update({ position: h.position }).eq("id", h.id),
+        supabase
+          .from("habits")
+          .update({ position: h.position })
+          .eq("id", h.id)
+          .select("id"),
       ),
     ]);
 
-    if (results.some((r) => r.error)) {
+    if (results.some((r) => r.error || !r.data || r.data.length === 0)) {
       setHabits(prevHabits);
       setError("couldn't archive that habit.");
     }
@@ -231,12 +244,13 @@ export function HabitManager({ userId }: { userId: string }) {
       ...archived.filter((h) => h.id !== id),
     ]);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("habits")
       .update({ archived: false, archived_at: null, position: newPosition })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       setHabits(prevHabits);
       setError("couldn't unarchive that habit.");
     }
