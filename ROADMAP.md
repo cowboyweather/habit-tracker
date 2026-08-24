@@ -3,7 +3,7 @@
 A free, insight-first habit tracker for adults. Seasonal rhythm, a pixel cat that
 reflects consistency, and AI-written titles as the shareable artifact.
 
-Last updated: 20 August 2026
+Last updated: 24 August 2026
 
 ---
 
@@ -25,7 +25,8 @@ Last updated: 20 August 2026
 - Calendar: month view shaded by completion, per-habit progress rings, today button, unlimited retroactive editing via the tap-to-expand day detail
 - Insights: completion by weekday, habit correlations and season-over-season drift once there's enough data
 - Season recap: full-bleed screen shown once after a season ends, in the outgoing season's palette — check-ins, best streak, strongest weekday, completion rate, a fixed title placeholder, warmer copy for a thin season. Dev-only preview for any past season via the season-theme widget
-- Clowders: belong to up to 5 at once (friends, family, etc.), each its own section with a large title, invite code, and member list, up to 8 members per clowder, micro cat sprites showing name/mood/today's status/streak, one nudge per person per day (global across all shared clowders) with a visible "X nudged you" on Home, leave one with a confirm step (auto-deletes an emptied clowder). Each clowder's invite code is permanent — assigned once at creation, no regenerate. Zero-clowder state is just two buttons, create or join, one form open at a time; once in a clowder, creating another is behind a button too, joining stays a small permanent form
+- Clowders: belong to up to 5 at once (friends, family, etc.), restructured into two real pages. `/clowders` is a light list — each clowder as a tappable house icon (one shared placeholder for now) and name, "+" to create or join another, up to 8 members per clowder. `/clowders/[id]` is the detail page: clowder name as the title, invite code shown small and unobtrusive, members in a responsive grid (2 up to 4 per row) each showing their cat with a trailing-7-day progress ring wrapped around it (closed rings get a checkmark badge, not just a full arc, so they read at a glance), cat name, and username. The leader — whoever created the clowder, or the longest-standing remaining member if they've left — gets a crown, and only they see the settings link (rename, for now; enforced server-side, not just hidden). Leaving asks for confirmation and auto-deletes an emptied clowder. Each clowder's invite code is permanent, assigned once at creation, no regenerate. Zero-clowder state is still just two buttons, create or join, one form open at a time
+- Nudging a clowder-mate currently has no UI trigger — the redesigned member card deliberately shows only the ring, cat name, and username, which dropped the per-member nudge button along with logged-today and streak. Receiving still works (the "X nudged you" banner on Home), sending doesn't; see Phase 5
 
 **Not built yet:** everything below.
 
@@ -56,6 +57,7 @@ Recorded so they don't get relitigated in future sessions.
 | RLS DELETE needs SELECT visibility too | A table with RLS enabled and a DELETE policy but *no* SELECT policy will silently delete nothing — Postgres needs a row to be visible via SELECT before DELETE/UPDATE can act on it, separate from whatever the DELETE policy's own `USING` clause allows. `clowder_members` had exactly this shape (deliberately no SELECT policy; reads meant to go through `get_my_clowder_summary()` only) and "leave a clowder" was a silent no-op — 200/204 success, zero rows affected, no error — since the feature was first built. Never caught because leaving was never actually tested end-to-end until the multi-clowder work forced a real adversarial pass. Fixed with a SELECT policy scoped to `user_id = auth.uid()`, which doesn't loosen anything a client couldn't already reconstruct from the summary function |
 | Shareable `/join/<code>` links: built, then dropped | Built with a full signup/onboarding-surviving redemption flow, then removed — this is a home-screen PWA, and iOS opens links in Safari rather than the installed app, so a shared link produced a second, logged-out copy of the app instead of anything useful. Worse than just sending the code. The `/join` page, its cookie-based redemption flow, and the share/copy-link button are all gone; `get_clowder_preview` (see below) is kept since it's harmless and immediately useful again if links return — e.g. shipping natively, where this problem doesn't exist |
 | `get_clowder_preview` is the first anon-callable function | Deliberately narrow (name + member count only, no ids), and returns zero rows for an invalid code rather than an error — an invalid code and a nonexistent one are indistinguishable to the caller, so it can't be used to enumerate which codes exist. No rate limiting yet; noted in Phase 5 as a future consideration if this scales past a small trusted base. Currently unused by any UI — kept in reserve, see above |
+| Clowder leader is derived, not stored | No `leader_id` column — `_clowder_leader()` computes it live as `clowders.created_by`, unless that person has left the clowder, in which case it falls back to whoever in `clowder_members` has the earliest `joined_at`. Nothing to keep in sync when someone leaves, at the cost of a small per-lookup computation (fine at 8 members max). Every leader-only action (currently just `rename_clowder`) checks this function itself rather than trusting the client — a direct RPC call from a non-leader is rejected the same way the UI already prevents, not just hidden from it |
 
 ---
 
@@ -128,8 +130,11 @@ visible, which means revisiting the security policies.
 - [ ] Clowder icons — a small image or emblem per clowder
 - [ ] Shared clowder goals — a collective target the group works toward together
 - [ ] Per-clowder habit visibility setting, default off. Opt in to show your habit names to a specific clowder. Expands what crosses the user boundary beyond the current name/mood/streak/today-status set, so it needs its own adversarial testing pass when built, same rigor as the rest of Clowders
-- [ ] Rename the Clowder page title to "clowders" (plural)
-- [ ] Clowder detail page — tap a clowder to open a page listing each member's cat, cat name, and username, with a progress ring wrapped around the cat sprite itself (not sitting beside it — the pet is the indicator, no bare numbers next to each other). Same trailing-7-day figure that drives the cat's mood, reusing the ring component already built for the calendar page. Must read clearly at ~40px in a member list, with a closed ring visually distinct from 95%
+- [x] Rename the Clowder page title to "clowders" (plural)
+- [x] Clowder detail page — a separate `/clowders/[id]` route listing each member's cat, cat name, and username, with a progress ring wrapped around the cat sprite itself. Same trailing-7-day figure that drives the cat's mood. Reads clearly at ~44px in a responsive grid, with a closed ring getting a checkmark badge rather than relying on the arc alone to read as "done" vs. 95%
+- [x] Clowder leader — derived from `created_by`, crown shown to everyone, settings (rename) visible and enforced leader-only
+- [ ] Give nudging a new home in the redesigned member card — the send-nudge button was dropped when the card was reduced to ring/cat name/username only; receiving still works, sending currently doesn't
+- [ ] Different house icon per clowder — every clowder currently shares one placeholder icon on the `/clowders` list
 - [ ] Rate-limiting on `get_clowder_preview` — not needed at current scale, but it's the one unauthenticated surface in the app and the obvious target for a brute-force scan of the invite code space if usage grows
 
 ---

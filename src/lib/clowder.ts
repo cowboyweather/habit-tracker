@@ -8,7 +8,7 @@ export type ClowderMemberSummary = {
   username: string;
   cat_name: string;
   expression: "content" | "happy" | "restless" | "scruffy";
-  logged_today: boolean;
-  current_streak: number;
+  trailing_rate: number;
+  is_leader: boolean;
   is_you: boolean;
 };

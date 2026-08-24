@@ -42,7 +42,7 @@ export function SwipeShell({
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
-          <ClowderPanel userId={userId} isActive={activeIndex === 0} />
+          <ClowderPanel isActive={activeIndex === 0} />
         </div>
         <div
           ref={homeRef}
