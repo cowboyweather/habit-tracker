@@ -40,7 +40,10 @@ export function ClowderSettings({
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-8 px-4 pt-8">
+    <div
+      className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col gap-8 px-4"
+      style={{ paddingTop: "calc(2rem + env(safe-area-inset-top))" }}
+    >
       <div className="flex items-center gap-1">
         <Link
           href={`/clowders/${clowderId}`}

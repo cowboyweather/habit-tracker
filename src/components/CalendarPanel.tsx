@@ -422,7 +422,7 @@ export function CalendarPanel({
       className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
       style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
     >
-      <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
+      <h1 className="text-center text-3xl font-semibold tracking-[-0.02em] text-ink">
         calendar
       </h1>
 

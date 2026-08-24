@@ -125,7 +125,10 @@ export function ClowderPanel({ isActive = true }: { isActive?: boolean }) {
 
   if (loading) {
     return (
-      <div className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8">
+      <div
+        className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4"
+        style={{ paddingTop: "calc(2rem + env(safe-area-inset-top))" }}
+      >
         <div className="h-8 w-28 animate-pulse rounded bg-line" />
         <div className="grid grid-cols-3 gap-x-3 gap-y-6">
           {[0, 1, 2].map((i) => (
@@ -225,8 +228,11 @@ export function ClowderPanel({ isActive = true }: { isActive?: boolean }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[420px] flex-col gap-8 px-4 pt-8 pb-24">
-      <div className="flex items-center justify-between">
+    <div
+      className="mx-auto flex w-full max-w-[420px] flex-col gap-8 px-4 pb-24"
+      style={{ paddingTop: "calc(2rem + env(safe-area-inset-top))" }}
+    >
+      <div className="relative flex items-center justify-center">
         <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">
           clowders
         </h1>
@@ -234,7 +240,7 @@ export function ClowderPanel({ isActive = true }: { isActive?: boolean }) {
           <Link
             href="/clowders/new"
             aria-label="add a clowder"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line text-xl text-ink transition hover:border-accent active:scale-[0.98]"
+            className="absolute right-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line text-xl text-ink transition hover:border-accent active:scale-[0.98]"
           >
             +
           </Link>

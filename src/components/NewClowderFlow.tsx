@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LABEL_CLASS, FIELD_CLASS } from "@/lib/form-styles";
+import { markLandOnClowderPanel } from "@/lib/clowder-landing";
 
 export function NewClowderFlow() {
   const router = useRouter();
@@ -48,10 +49,14 @@ export function NewClowderFlow() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-4 pt-8 pb-24">
+    <div
+      className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-4 pb-24"
+      style={{ paddingTop: "calc(2rem + env(safe-area-inset-top))" }}
+    >
       <div className="flex items-center gap-1">
         <Link
           href="/"
+          onClick={() => markLandOnClowderPanel()}
           aria-label="back"
           className="flex h-11 w-11 items-center justify-center text-xl text-muted transition hover:text-ink"
         >

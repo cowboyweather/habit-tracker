@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { MemberRing } from "@/components/MemberRing";
 import { startOfLocalDay, toDateKey } from "@/lib/date";
+import { markLandOnClowderPanel } from "@/lib/clowder-landing";
 import type { ClowderMemberSummary } from "@/lib/clowder";
 
 // Ring size, tripled from the original 44px per the sizing pass — reads
@@ -16,20 +17,27 @@ const SHEET_RING_SIZE = 100;
 // uses this footprint even where the icon drawn inside it is smaller.
 const TOUCH_TARGET = "flex h-11 w-11 shrink-0 items-center justify-center";
 
+// A gear: a ring plus six blocky teeth, not thin radiating lines — the
+// earlier version used lines and read as a sun/brightness icon instead.
+const GEAR_TEETH_ANGLES = [0, 60, 120, 180, 240, 300];
+
 function SettingsIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-      <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <line x1="12" y1="2" x2="12" y2="5" />
-        <line x1="12" y1="19" x2="12" y2="22" />
-        <line x1="2" y1="12" x2="5" y2="12" />
-        <line x1="19" y1="12" x2="22" y2="12" />
-        <line x1="4.9" y1="4.9" x2="7" y2="7" />
-        <line x1="17" y1="17" x2="19.1" y2="19.1" />
-        <line x1="4.9" y1="19.1" x2="7" y2="17" />
-        <line x1="17" y1="7" x2="19.1" y2="4.9" />
-      </g>
+      {GEAR_TEETH_ANGLES.map((deg) => (
+        <rect
+          key={deg}
+          x="10.5"
+          y="0.5"
+          width="3"
+          height="4"
+          rx="0.5"
+          fill="currentColor"
+          transform={`rotate(${deg} 12 12)`}
+        />
+      ))}
+      <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -171,6 +179,7 @@ export function ClowderDetail({
       setActionError("couldn't leave — try again.");
       return;
     }
+    markLandOnClowderPanel();
     router.push("/");
   }
 
@@ -205,7 +214,10 @@ export function ClowderDetail({
 
   if (loading) {
     return (
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pt-8">
+      <div
+        className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4"
+        style={{ paddingTop: "calc(2rem + env(safe-area-inset-top))" }}
+      >
         <div className="h-8 w-40 animate-pulse rounded bg-line" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
@@ -243,6 +255,7 @@ export function ClowderDetail({
         </p>
         <Link
           href="/"
+          onClick={() => markLandOnClowderPanel()}
           className="rounded-xl bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ink/90 active:scale-[0.98]"
         >
           back to clowders
@@ -256,33 +269,37 @@ export function ClowderDetail({
   const iAmLeader = members.some((m) => m.is_you && m.is_leader);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pt-8 pb-24">
+    <div
+      className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 pb-24"
+      style={{ paddingTop: "calc(2rem + env(safe-area-inset-top))" }}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1">
-          <Link
-            href="/"
-            aria-label="back"
-            className={`${TOUCH_TARGET} text-xl text-muted transition hover:text-ink`}
-          >
-            ←
-          </Link>
-          <div className="flex min-w-0 flex-col">
-            <h1 className="truncate text-2xl font-semibold tracking-[-0.02em] text-ink">
+        <div className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 items-center gap-1">
+            <Link
+              href="/"
+              onClick={() => markLandOnClowderPanel()}
+              aria-label="back"
+              className={`${TOUCH_TARGET} text-xl text-muted transition hover:text-ink`}
+            >
+              ←
+            </Link>
+            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.02em] text-ink">
               {clowderName}
             </h1>
-            <div className="flex items-center gap-0.5">
-              <span className="font-mono text-xs tracking-[0.1em] text-muted">
-                {inviteCode}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleCopy(inviteCode)}
-                aria-label="copy invite code"
-                className={`${TOUCH_TARGET} text-muted transition hover:text-ink`}
-              >
-                {copied ? <CheckIcon /> : <CopyIcon />}
-              </button>
-            </div>
+          </div>
+          <div className="flex items-center gap-px pl-12">
+            <span className="font-mono text-xs tracking-[0.1em] text-muted">
+              {inviteCode}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleCopy(inviteCode)}
+              aria-label="copy invite code"
+              className="flex h-11 w-11 shrink-0 items-center justify-start text-muted transition hover:text-ink"
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </button>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
