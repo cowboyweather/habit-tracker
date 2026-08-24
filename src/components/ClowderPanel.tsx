@@ -214,8 +214,8 @@ export function ClowderPanel({
           clowder
         </h1>
         <p className="text-sm text-muted">
-          a small group of friends, cooperative rather than competitive. no
-          leaderboard, no ranking.
+          join a clowder with friends and motivate each other! friends cannot
+          see what your habit goals are, but they can follow your progress.
         </p>
 
         {actionError && (
