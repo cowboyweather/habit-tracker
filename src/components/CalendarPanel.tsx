@@ -369,8 +369,6 @@ export function CalendarPanel({
         className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
         style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
       >
-        <div className="h-8 w-28 animate-pulse rounded bg-line" />
-
         <div className="flex flex-col items-center gap-3">
           <div className="flex justify-center gap-4">
             {[0, 1, 2].map((i) => (
@@ -422,10 +420,6 @@ export function CalendarPanel({
       className="mx-auto flex w-full max-w-[420px] flex-col gap-6 px-4 pt-8"
       style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
     >
-      <h1 className="text-center text-3xl font-semibold tracking-[-0.02em] text-ink">
-        calendar
-      </h1>
-
       {loggedDayCount === 0 && (
         <p className="rounded-xl border border-line bg-card px-4 py-3 text-sm text-muted">
           this fills in as you log habits — nothing to show yet.
