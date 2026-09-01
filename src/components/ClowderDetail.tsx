@@ -356,6 +356,7 @@ export function ClowderDetail({
             className="flex flex-col items-center gap-2 text-center transition active:scale-95"
           >
             <MemberRing
+              breed={m.breed}
               expression={m.expression}
               rate={m.trailing_rate}
               size={GRID_RING_SIZE}
@@ -404,6 +405,7 @@ function MemberSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <MemberRing
+          breed={member.breed}
           expression={member.expression}
           rate={member.trailing_rate}
           size={SHEET_RING_SIZE}

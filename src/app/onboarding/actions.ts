@@ -2,8 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { HABIT_COLORS } from "@/lib/habit-colors";
+import type { Breed } from "@/components/CatSprite";
 
-export async function saveCatName(name: string) {
+export async function saveCatName(name: string, breed: Breed) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,7 +16,7 @@ export async function saveCatName(name: string) {
 
   const { error } = await supabase
     .from("pets")
-    .insert({ user_id: user.id, name: petName });
+    .insert({ user_id: user.id, name: petName, breed });
 
   if (error) throw new Error(error.message);
 }

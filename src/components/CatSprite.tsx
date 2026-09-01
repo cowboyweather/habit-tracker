@@ -1,10 +1,10 @@
 // CatSprite.tsx
 // Drop into: src/components/CatSprite.tsx
-// Put cat-sheet.png into: public/cat-sheet.png
+// Sprite sheets live in: public/cats/cat-<breed>.png
 //
 // Usage:
 //   import CatSprite, { moodFromCompletion } from "@/components/CatSprite";
-//   <CatSprite expression={moodFromCompletion(0.62)} size={132} />
+//   <CatSprite breed="munchkin" expression={moodFromCompletion(0.62)} size={132} />
 
 export type Expression =
   | "content"
@@ -15,7 +15,7 @@ export type Expression =
   | "sleepy"
   | "excited";
 
-/** Frame order in cat-sheet.png, left to right. Don't reorder without regenerating the sheet. */
+/** Frame order in every cat-<breed>.png, left to right. Don't reorder without regenerating the sheets. */
 const FRAMES: Expression[] = [
   "content",
   "happy",
@@ -25,6 +25,20 @@ const FRAMES: Expression[] = [
   "sleepy",
   "excited",
 ];
+
+/** Every coat a sprite sheet exists for — must match the DB check constraint on pets.breed. */
+export const BREEDS = [
+  "munchkin",
+  "midnight",
+  "marmalade",
+  "tuxedo",
+  "siamese",
+  "russian",
+  "calico",
+  "snow",
+] as const;
+
+export type Breed = (typeof BREEDS)[number];
 
 /** Native sprite grid, before scaling. */
 const FRAME_W = 22;
@@ -76,8 +90,8 @@ type Props = {
   /** Rendered height in CSS pixels. Width follows the sprite's aspect ratio. */
   size?: number;
   className?: string;
-  /** Path to the sheet in /public. */
-  src?: string;
+  /** Which coat's sheet to load, from public/cats/cat-<breed>.png. */
+  breed?: Breed;
   /** Shift right so the cat's body reads as centered, not the tail-inclusive frame. */
   centerBody?: boolean;
 };
@@ -86,7 +100,7 @@ export default function CatSprite({
   expression = "content",
   size = 132,
   className,
-  src = "/cat-sheet.png",
+  breed = "munchkin",
   centerBody = true,
 }: Props) {
   const index = Math.max(0, FRAMES.indexOf(expression));
@@ -94,6 +108,7 @@ export default function CatSprite({
   const width = FRAME_W * scale;
   const height = FRAME_H * scale;
   const bodyOffset = centerBody ? BODY_OFFSET_COLUMNS * scale : 0;
+  const src = `/cats/cat-${breed}.png`;
 
   return (
     <div

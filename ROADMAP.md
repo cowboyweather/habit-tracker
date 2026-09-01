@@ -3,7 +3,7 @@
 A free, insight-first habit tracker for adults. Seasonal rhythm, a pixel cat that
 reflects consistency, and AI-written titles as the shareable artifact.
 
-Last updated: 24 August 2026
+Last updated: 1 September 2026
 
 ---
 
@@ -27,6 +27,7 @@ Last updated: 24 August 2026
 - Season recap: full-bleed screen shown once after a season ends, in the outgoing season's palette — check-ins, best streak, strongest weekday, completion rate, a fixed title placeholder, warmer copy for a thin season. Dev-only preview for any past season via the season-theme widget
 - Clowders: belong to up to 5 at once (friends, family, etc.), restructured into two real pages. `/clowders` is a light list — each clowder as a tappable house icon (one shared placeholder for now) and name, "+" to create or join another, up to 8 members per clowder. `/clowders/[id]` is the detail page: clowder name as the title, invite code shown small and unobtrusive, members in a responsive grid (2 up to 4 per row) each showing their cat with a trailing-7-day progress ring wrapped around it (closed rings get a checkmark badge, not just a full arc, so they read at a glance), cat name, and username. The leader — whoever created the clowder, or the longest-standing remaining member if they've left — is the only one who sees the settings icon button (rename, for now; enforced server-side, not just hidden). No visible marker on the leader's card for now — the crown was tried and pulled (see roadmap). Leaving asks for confirmation and auto-deletes an emptied clowder. Each clowder's invite code is permanent, assigned once at creation, no regenerate. Zero-clowder state is still just two buttons, create or join, one form open at a time
 - Nudging a clowder-mate: tap their cat in the member grid to open a small sheet (ring, cat name, username, and a nudge button that disables once used today) rather than a button sitting in the grid itself
+- Cat breeds: eight coats (munchkin, midnight, marmalade, tuxedo, siamese, russian, calico, snow), each a full sprite sheet rather than a palette swap of one shape. Picked during onboarding (munchkin preselected) or changed any time from Settings, same picker component both places. Stored on `pets.breed`, visible to clowder members through `get_my_clowder_summary()` the same narrow way as name/mood/streak
 
 **Not built yet:** everything below.
 
@@ -58,6 +59,8 @@ Recorded so they don't get relitigated in future sessions.
 | Shareable `/join/<code>` links: built, then dropped | Built with a full signup/onboarding-surviving redemption flow, then removed — this is a home-screen PWA, and iOS opens links in Safari rather than the installed app, so a shared link produced a second, logged-out copy of the app instead of anything useful. Worse than just sending the code. The `/join` page, its cookie-based redemption flow, and the share/copy-link button are all gone; `get_clowder_preview` (see below) is kept since it's harmless and immediately useful again if links return — e.g. shipping natively, where this problem doesn't exist |
 | `get_clowder_preview` is the first anon-callable function | Deliberately narrow (name + member count only, no ids), and returns zero rows for an invalid code rather than an error — an invalid code and a nonexistent one are indistinguishable to the caller, so it can't be used to enumerate which codes exist. No rate limiting yet; noted in Phase 5 as a future consideration if this scales past a small trusted base. Currently unused by any UI — kept in reserve, see above |
 | Clowder leader is derived, not stored | No `leader_id` column — `_clowder_leader()` computes it live as `clowders.created_by`, unless that person has left the clowder, in which case it falls back to whoever in `clowder_members` has the earliest `joined_at`. Nothing to keep in sync when someone leaves, at the cost of a small per-lookup computation (fine at 8 members max). Every leader-only action (currently just `rename_clowder`) checks this function itself rather than trusting the client — a direct RPC call from a non-leader is rejected the same way the UI already prevents, not just hidden from it |
+| `returns table(...)` row-type changes need DROP, not CREATE OR REPLACE | Postgres rejects `create or replace function` outright when the OUT-parameter shape changes (a column added or removed) — `get_my_clowder_summary()` has hit this twice now (adding `trailing_rate`/`is_leader` in migration 0010, adding `breed` in 0012), both times requiring an explicit `drop function` before the `create`, wrapped in `begin`/`commit` so nothing can observe the function mid-swap, with grants reapplied after since the drop takes them too. A body-only change (no column added/removed) is still fine with plain `create or replace` — only the shape change forces this |
+| Cat breed is real art, not a palette swap | Originally planned as a palette-swap on one sprite shape (see Phase 4 history); shipped instead as eight independent sprite sheets (`public/cats/cat-<breed>.png`), each still the same 22×18-frame, 7-expression grid so `CatSprite.tsx`'s frame math didn't need to change, just an added `breed` prop selecting which sheet to load. The eight names live in two places that must be kept in sync by hand: `CatSprite.tsx`'s `BREEDS` array and `pets`'s `pets_breed_check` constraint — there's no single source of truth across the app/DB boundary here |
 
 ---
 
@@ -113,7 +116,7 @@ The viral surface. Not worth building until there's real data to describe.
 - [ ] Notes on a session (parked in the original spec, still wanted)
 - [ ] Reminders — needs real thought, web push on iOS is fiddly
 - [ ] Time zone handling for travel
-- [ ] Cat colorways — eight presets, chosen during onboarding and changeable any time from settings. Palette swap on the existing sprite, no new sprite work (coat color is already just a palette lookup in `CatSprite.tsx`). One preset must match the real reference cat: brown/grey tabby, white blaze up the face, white bib and paws, green eyes. Placeholder art for all eight until the pixel artist redraws them. Stored on `pets`. Visible to clowder members — that's the point of customizing it — so this is another field crossing the user boundary in the same narrow, function-mediated way as the rest of Clowders, not a new access pattern
+- [x] Cat breeds — shipped as eight full sprite sheets (real art, not the originally-planned palette swap of one shape) rather than waiting on that approach; see "Live and working"
 
 ---
 

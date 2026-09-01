@@ -1,3 +1,5 @@
+import type { Breed } from "@/components/CatSprite";
+
 // Snake-case to match get_my_clowder_summary()'s raw RPC return shape
 // directly, same convention as LogRow/HabitRecord elsewhere in the app.
 export type ClowderMemberSummary = {
@@ -7,6 +9,7 @@ export type ClowderMemberSummary = {
   user_id: string;
   username: string;
   cat_name: string;
+  breed: Breed;
   expression: "content" | "happy" | "restless" | "scruffy";
   trailing_rate: number;
   is_leader: boolean;

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import CatSprite from "@/components/CatSprite";
+import CatSprite, { type Breed } from "@/components/CatSprite";
+import { BreedPicker } from "@/components/BreedPicker";
 import { LABEL_CLASS, FIELD_CLASS } from "@/lib/form-styles";
 import { saveCatName, saveHabits } from "@/app/onboarding/actions";
 
@@ -26,6 +27,7 @@ export function OnboardingFlow() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [catName, setCatName] = useState("");
+  const [breed, setBreed] = useState<Breed>("munchkin");
   const [habitNames, setHabitNames] = useState<string[]>([""]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -39,7 +41,7 @@ export function OnboardingFlow() {
     }
     startTransition(async () => {
       try {
-        await saveCatName(finalName);
+        await saveCatName(finalName, breed);
         setStep(2);
       } catch (e) {
         setError(e instanceof Error ? e.message : "something went wrong.");
@@ -93,7 +95,7 @@ export function OnboardingFlow() {
         <StepDots step={1} />
 
         <div className="flex h-44 items-center justify-center rounded-2xl bg-gradient-to-br from-sky to-sand">
-          <CatSprite expression="happy" size={120} />
+          <CatSprite breed={breed} expression="happy" size={120} />
         </div>
 
         <div className="flex flex-col items-center gap-1.5 text-center">
@@ -123,6 +125,11 @@ export function OnboardingFlow() {
               placeholder="e.g. munchkin"
               className={FIELD_CLASS}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={LABEL_CLASS}>Coat</label>
+            <BreedPicker value={breed} onChange={setBreed} />
           </div>
 
           <div className="flex flex-col items-center gap-3 pt-2">

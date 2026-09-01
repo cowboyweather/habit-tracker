@@ -1,4 +1,4 @@
-import CatSprite, { type Expression } from "@/components/CatSprite";
+import CatSprite, { type Breed, type Expression } from "@/components/CatSprite";
 
 const STROKE_RATIO = 0.045;
 
@@ -8,10 +8,12 @@ const STROKE_RATIO = 0.045;
 // identically as a bare arc, so the badge (not just the arc closing) is
 // what actually signals "done."
 export function MemberRing({
+  breed,
   expression,
   rate,
   size = 44,
 }: {
+  breed: Breed;
   expression: Expression;
   rate: number;
   size?: number;
@@ -55,7 +57,7 @@ export function MemberRing({
         />
       </svg>
       <div className="flex h-full w-full items-center justify-center">
-        <CatSprite expression={expression} size={catSize} />
+        <CatSprite breed={breed} expression={expression} size={catSize} />
       </div>
       {closed && (
         <span

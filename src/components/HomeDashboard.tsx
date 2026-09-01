@@ -7,6 +7,7 @@ import CatSprite, {
   moodFromCompletion,
   momentaryExpression,
   type Expression,
+  type Breed,
 } from "@/components/CatSprite";
 import { logout } from "@/lib/auth-actions";
 import { trailingWeekRate } from "@/lib/habit-progress";
@@ -120,6 +121,7 @@ export function HomeDashboard({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [petName, setPetName] = useState("");
+  const [breed, setBreed] = useState<Breed>("munchkin");
   const [season, setSeason] = useState<Season | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<Record<string, boolean>>({});
@@ -169,7 +171,7 @@ export function HomeDashboard({
         const [petRes, habitsRes, logsRes, seasonRes] = await Promise.all([
           supabase
             .from("pets")
-            .select("name")
+            .select("name, breed")
             .eq("user_id", userId)
             .abortSignal(controller.signal)
             .maybeSingle(),
@@ -204,6 +206,7 @@ export function HomeDashboard({
         }
 
         setPetName(petRes.data?.name ?? "your cat");
+        setBreed((petRes.data?.breed as Breed) ?? "munchkin");
         setHabits((habitsRes.data as Habit[]) ?? []);
 
         const logMap: Record<string, boolean> = {};
@@ -441,11 +444,19 @@ export function HomeDashboard({
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
           {topLine}
         </p>
-        <form action={logout}>
-          <button className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:text-ink">
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/settings"
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:text-ink"
+          >
+            Settings
+          </Link>
+          <form action={logout}>
+            <button className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:text-ink">
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
 
       <NudgeBanner isActive={isActive} />
@@ -461,7 +472,7 @@ export function HomeDashboard({
 
       <div className="flex flex-col items-center gap-2">
         <div className="flex min-h-[192px] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-sky to-sand p-6">
-          <CatSprite expression={displayExpression} size={140} />
+          <CatSprite breed={breed} expression={displayExpression} size={140} />
         </div>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
           {petName} · {flooredMood}
