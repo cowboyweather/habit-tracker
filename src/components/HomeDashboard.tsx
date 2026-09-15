@@ -12,6 +12,7 @@ import CatSprite, {
 import { logout } from "@/lib/auth-actions";
 import { trailingWeekRate } from "@/lib/habit-progress";
 import { NudgeBanner } from "@/components/NudgeBanner";
+import { BreedPicker } from "@/components/BreedPicker";
 import {
   addDays,
   daysBetween,
@@ -126,6 +127,8 @@ export function HomeDashboard({
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<Record<string, boolean>>({});
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [breedError, setBreedError] = useState<string | null>(null);
+  const [breedSheetOpen, setBreedSheetOpen] = useState(false);
   const [momentary, setMomentary] = useState<Expression | null>(null);
   // Rolled once, lazily, the first time the effect below actually runs.
   // null = not rolled yet.
@@ -268,6 +271,24 @@ export function HomeDashboard({
       }),
     );
   }, [loading, habits, logs, todayKey]);
+
+  async function handleBreedChange(nextBreed: Breed) {
+    const previousBreed = breed;
+    setBreedError(null);
+    setBreed(nextBreed); // optimistic
+    setBreedSheetOpen(false);
+
+    const { data, error } = await supabase
+      .from("pets")
+      .update({ breed: nextBreed })
+      .eq("user_id", userId)
+      .select("id");
+
+    if (error || !data || data.length === 0) {
+      setBreed(previousBreed);
+      setBreedError("couldn't save that coat — try again.");
+    }
+  }
 
   async function toggleDay(habitId: string, dateKey: string) {
     const key = logKey(habitId, dateKey);
@@ -471,13 +492,32 @@ export function HomeDashboard({
       </div>
 
       <div className="flex flex-col items-center gap-2">
-        <div className="flex min-h-[192px] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-sky to-sand p-6">
+        <button
+          type="button"
+          onClick={() => setBreedSheetOpen(true)}
+          aria-label="change coat"
+          className="relative flex min-h-[192px] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-sky to-sand p-6 transition active:scale-[0.98]"
+        >
           <CatSprite breed={breed} expression={displayExpression} size={140} />
-        </div>
+          <span className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-card/90 shadow-sm">
+            <SwatchIcon size={14} />
+          </span>
+        </button>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
           {petName} · {flooredMood}
         </p>
+        {breedError && (
+          <p className="text-xs text-red-500/80">{breedError}</p>
+        )}
       </div>
+
+      {breedSheetOpen && (
+        <BreedSheet
+          value={breed}
+          onChange={handleBreedChange}
+          onClose={() => setBreedSheetOpen(false)}
+        />
+      )}
 
       <div className="flex flex-col gap-3">
         {habits.length === 0 ? (
@@ -607,6 +647,54 @@ export function HomeDashboard({
             })}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// A cluster of swatches, not a full palette-with-thumbhole shape — simpler
+// to get right at 14px and still reads clearly as "customize the color."
+function SwatchIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <circle cx="8" cy="8" r="4.4" fill="#e07a5f" />
+      <circle cx="16" cy="8" r="4.4" fill="#3d8f8f" />
+      <circle cx="8" cy="16" r="4.4" fill="#f2cc65" />
+      <circle cx="16" cy="16" r="4.4" fill="#4a5f94" />
+    </svg>
+  );
+}
+
+function BreedSheet({
+  value,
+  onChange,
+  onClose,
+}: {
+  value: Breed;
+  onChange: (breed: Breed) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full max-w-[360px] flex-col gap-4 rounded-t-3xl bg-card p-6 pb-8 sm:rounded-3xl"
+        style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-center text-sm font-medium text-ink">
+          choose a coat
+        </p>
+        <BreedPicker value={value} onChange={onChange} />
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-center text-xs font-medium text-muted transition hover:text-ink"
+        >
+          close
+        </button>
       </div>
     </div>
   );
