@@ -22,6 +22,12 @@ export function SwipeShell({
   const [activeIndex, setActiveIndex] = useState(() =>
     consumeLandOnClowderPanel() ? 0 : 1,
   );
+  // A panel can have its own full-screen sheet (e.g. Home's breed picker).
+  // While one's open, the swipe container itself needs to stop scrolling —
+  // a fixed-position backdrop sits visually on top, but it's still a DOM
+  // descendant of this scrollable div, so a swipe starting on it would
+  // otherwise still resolve to scrolling this container underneath.
+  const [scrollLocked, setScrollLocked] = useState(false);
   // The mount-scroll effect below needs activeIndex's *initial* value only
   // — captured once here so the effect can stay []-deps and not re-fire
   // (fighting the user's own swipes) every time activeIndex later changes
@@ -50,7 +56,9 @@ export function SwipeShell({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="no-scrollbar flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        className={`no-scrollbar flex h-full w-full snap-x snap-mandatory overflow-y-hidden overscroll-x-contain ${
+          scrollLocked ? "overflow-x-hidden" : "overflow-x-auto"
+        }`}
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">
@@ -64,6 +72,7 @@ export function SwipeShell({
             userId={userId}
             createdAt={createdAt}
             isActive={activeIndex === 1}
+            onSheetOpenChange={setScrollLocked}
           />
         </div>
         <div className="h-full w-screen shrink-0 snap-start snap-always overflow-y-auto">

@@ -113,10 +113,13 @@ export function HomeDashboard({
   userId,
   createdAt,
   isActive,
+  onSheetOpenChange,
 }: {
   userId: string;
   createdAt: string;
   isActive: boolean;
+  /** Lets SwipeShell suspend its own horizontal scroll while a sheet here is open. */
+  onSheetOpenChange: (open: boolean) => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
@@ -129,6 +132,10 @@ export function HomeDashboard({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [breedError, setBreedError] = useState<string | null>(null);
   const [breedSheetOpen, setBreedSheetOpen] = useState(false);
+
+  useEffect(() => {
+    onSheetOpenChange(breedSheetOpen);
+  }, [breedSheetOpen, onSheetOpenChange]);
   const [momentary, setMomentary] = useState<Expression | null>(null);
   // Rolled once, lazily, the first time the effect below actually runs.
   // null = not rolled yet.
