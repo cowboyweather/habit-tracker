@@ -698,7 +698,7 @@ function BreedSheet({
         <button
           type="button"
           onClick={onClose}
-          className="text-center text-xs font-medium text-muted transition hover:text-ink"
+          className="min-h-11 w-full rounded-xl border border-line text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
         >
           close
         </button>

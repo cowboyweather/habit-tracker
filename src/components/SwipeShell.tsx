@@ -91,19 +91,21 @@ export function SwipeShell({
         </div>
       </div>
 
-      <div
-        className="pointer-events-none fixed left-1/2 z-40 flex -translate-x-1/2 gap-1.5"
-        style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
-      >
-        {[0, 1, 2, 3].map((i) => (
-          <span
-            key={i}
-            className={`h-1.5 rounded-full transition-all ${
-              activeIndex === i ? "w-5 bg-accent" : "w-1.5 bg-line"
-            }`}
-          />
-        ))}
-      </div>
+      {!scrollLocked && (
+        <div
+          className="pointer-events-none fixed left-1/2 z-40 flex -translate-x-1/2 gap-1.5"
+          style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${
+                activeIndex === i ? "w-5 bg-accent" : "w-1.5 bg-line"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
