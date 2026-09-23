@@ -5,8 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { addDays, daysBetween, parseDateKey, startOfLocalDay, toDateKey } from "@/lib/date";
 import {
   computeDayStat,
+  computeBestStreak,
+  computePerfectDays,
+  computeRecoveryGap,
+  computeWeekdayGap,
   dailyStatsRangeStart,
   isActiveOn,
+  windowAverageRate,
   WEEKDAY_LETTERS,
   WEEKDAY_NAMES,
   type HabitRecord,
@@ -16,8 +21,41 @@ import {
 
 type SeasonRow = { name: string; start_date: string; end_date: string };
 
-const CORRELATION_DAYS_NEEDED = 21;
+// Every threshold below is a starting guess (per-insight, not one global
+// gate) — easy to retune once these have run against real data instead of
+// being calibrated in the abstract.
+const STRONGEST_DAY_MIN_DAYS = 4;
+const BEST_STREAK_MIN_DAYS = 4;
+const PERFECT_DAYS_MIN_DAYS = 4;
+const MOMENTUM_VISIBLE_DAYS = 10;
+// A fair trailing-7-vs-previous-7 comparison needs 14 days of real
+// history, not 10 — at day 10-13 the "previous week" window is only
+// partially real. The card still appears at 10 (matching the spec), it
+// just stays in its "gathering" message until day 14 rather than
+// comparing against mostly-empty days.
+const MOMENTUM_READY_DAYS = 14;
+const MOMENTUM_STEADY_THRESHOLD_PCT = 10;
+const RECOVERY_MIN_DAYS = 10;
+const CORRELATION_MIN_DAYS = 14;
 const CORRELATION_MIN_SAMPLE = 3;
+const CORRELATION_MIN_OVERLAP_DAYS = 10;
+
+const MAX_FEATURED = 5;
+
+type InsightState =
+  | { status: "locked"; message: string }
+  | { status: "ready"; headline: string; surprise: number };
+
+type Insight = {
+  id: string;
+  title: string;
+  state: InsightState;
+};
+
+function daysRemainingMessage(loggedDayCount: number, threshold: number): string {
+  const remaining = threshold - loggedDayCount;
+  return `${remaining} more day${remaining === 1 ? "" : "s"} of logging`;
+}
 
 function seasonForDate(
   seasons: SeasonRow[],
@@ -175,21 +213,53 @@ export function InsightsPanel({
     }));
   }, [dailyStats]);
 
-  const weekdaySummary = useMemo(() => {
-    const withData = weekdayStats
-      .map((b, i) => ({ ...b, index: i }))
-      .filter((b) => b.trackableDays > 0);
-    if (withData.length < 2) return "not enough data yet.";
-    const strongest = withData.reduce((a, b) => (b.rate > a.rate ? b : a));
-    const weakest = withData.reduce((a, b) => (b.rate < a.rate ? b : a));
-    if (strongest.index === weakest.index) {
-      return "completion looks steady across the week so far.";
-    }
-    return `strongest on ${WEEKDAY_NAMES[strongest.index]}s, weakest on ${WEEKDAY_NAMES[weakest.index]}s.`;
-  }, [weekdayStats]);
+  const currentSeason = useMemo(
+    () => seasonForDate(seasons, todayKey),
+    [seasons, todayKey],
+  );
+
+  // ---------------------------------------------------------------------
+  // Insight calculations. Each produces either null/insufficient (still
+  // locked, with a specific reason) or a real result (ready, with a
+  // surprise score used to rank it against the others).
+  // ---------------------------------------------------------------------
+
+  const weekdayGap = useMemo(() => computeWeekdayGap(weekdayStats), [weekdayStats]);
+
+  const bestStreak = useMemo(
+    () => computeBestStreak(habits, logsByDate, historyStart, today),
+    [habits, logsByDate, historyStart, today],
+  );
+
+  const perfectDaysCount = useMemo(() => {
+    const rangeStart =
+      currentSeason && currentSeason.start_date > toDateKey(historyStart)
+        ? parseDateKey(currentSeason.start_date)
+        : historyStart;
+    return computePerfectDays(habits, logsByDate, rangeStart, today);
+  }, [habits, logsByDate, historyStart, today, currentSeason]);
+
+  const hasDailyHabit = useMemo(
+    () => habits.some((h) => h.target_type === "daily"),
+    [habits],
+  );
+
+  const momentumDelta = useMemo(() => {
+    const trailingWindow = Array.from({ length: 7 }, (_, i) => addDays(today, -i));
+    const previousWindow = Array.from({ length: 7 }, (_, i) => addDays(today, -7 - i));
+    const trailingRate = windowAverageRate(habits, logsByDate, trailingWindow);
+    const previousRate = windowAverageRate(habits, logsByDate, previousWindow);
+    if (trailingRate === null || previousRate === null) return null;
+    return Math.round((trailingRate - previousRate) * 100);
+  }, [habits, logsByDate, today]);
+
+  const recovery = useMemo(
+    () => computeRecoveryGap(habits, logsByDate, historyStart, today),
+    [habits, logsByDate, historyStart, today],
+  );
 
   const correlation = useMemo(() => {
-    if (loggedDayCount < CORRELATION_DAYS_NEEDED || habits.length < 2) {
+    if (loggedDayCount < CORRELATION_MIN_DAYS || habits.length < 2) {
       return null;
     }
     let best: {
@@ -207,8 +277,10 @@ export function InsightsPanel({
         let withADone = 0;
         let withoutA = 0;
         let withoutADone = 0;
+        let bothTrackable = 0;
         for (const key of dailyStats.keys()) {
           if (!isActiveOn(a, key) || !isActiveOn(b, key)) continue;
+          bothTrackable++;
           const aDone =
             logsByDate.get(key)?.find((l) => l.habit_id === a.id)?.done ??
             false;
@@ -224,6 +296,7 @@ export function InsightsPanel({
           }
         }
         if (
+          bothTrackable < CORRELATION_MIN_OVERLAP_DAYS ||
           withA < CORRELATION_MIN_SAMPLE ||
           withoutA < CORRELATION_MIN_SAMPLE
         ) {
@@ -285,6 +358,243 @@ export function InsightsPanel({
       days: daysBetween(today, parseDateKey(next.start_date)),
     };
   }, [seasons, todayKey, today]);
+
+  // ---------------------------------------------------------------------
+  // Assemble every insight into one shape, then pick which 3-5 get
+  // featured. Habit correlation is always featured once unlocked (the
+  // headline insight, doesn't compete in the ranking); everything else
+  // fills the remaining slots by surprise score — distance from what's
+  // otherwise typical, not a fixed display order.
+  // ---------------------------------------------------------------------
+
+  const insights = useMemo<Insight[]>(() => {
+    const list: Insight[] = [];
+
+    // Strongest day
+    if (loggedDayCount < STRONGEST_DAY_MIN_DAYS) {
+      list.push({
+        id: "strongestDay",
+        title: "strongest day",
+        state: { status: "locked", message: daysRemainingMessage(loggedDayCount, STRONGEST_DAY_MIN_DAYS) },
+      });
+    } else if (!weekdayGap) {
+      list.push({
+        id: "strongestDay",
+        title: "strongest day",
+        state: { status: "locked", message: "needs a couple more of each weekday to compare." },
+      });
+    } else {
+      const gapPoints = Math.abs(weekdayGap.dayRatePct - weekdayGap.restRatePct);
+      const dayName = `${WEEKDAY_NAMES[weekdayGap.weekdayIndex]}s`;
+      const label = weekdayGap.direction === "weak" ? "your weak spot" : "your best day";
+      list.push({
+        id: "strongestDay",
+        title: "strongest day",
+        state: {
+          status: "ready",
+          headline: `${dayName} are ${label}: ${weekdayGap.dayRatePct}% vs ${weekdayGap.restRatePct}% the rest of the week.`,
+          surprise: Math.min(1, gapPoints / 40),
+        },
+      });
+    }
+
+    // Best streak
+    if (loggedDayCount < BEST_STREAK_MIN_DAYS) {
+      list.push({
+        id: "bestStreak",
+        title: "best streak",
+        state: { status: "locked", message: daysRemainingMessage(loggedDayCount, BEST_STREAK_MIN_DAYS) },
+      });
+    } else if (!bestStreak) {
+      list.push({
+        id: "bestStreak",
+        title: "best streak",
+        state: { status: "locked", message: "still building your first real streak." },
+      });
+    } else {
+      const cap = bestStreak.unit === "days" ? 14 : 8;
+      list.push({
+        id: "bestStreak",
+        title: "best streak",
+        state: {
+          status: "ready",
+          headline: `your longest run is ${bestStreak.length} ${bestStreak.unit}, on ${bestStreak.habit.name}.`,
+          surprise: Math.min(1, bestStreak.length / cap),
+        },
+      });
+    }
+
+    // Perfect days
+    if (loggedDayCount < PERFECT_DAYS_MIN_DAYS) {
+      list.push({
+        id: "perfectDays",
+        title: "perfect days",
+        state: { status: "locked", message: daysRemainingMessage(loggedDayCount, PERFECT_DAYS_MIN_DAYS) },
+      });
+    } else if (!hasDailyHabit) {
+      list.push({
+        id: "perfectDays",
+        title: "perfect days",
+        state: { status: "locked", message: "add a daily habit to track this." },
+      });
+    } else {
+      list.push({
+        id: "perfectDays",
+        title: "perfect days",
+        state: {
+          status: "ready",
+          headline: `you've hit everything on ${perfectDaysCount} day${perfectDaysCount === 1 ? "" : "s"} this season.`,
+          surprise: Math.min(1, perfectDaysCount / 10),
+        },
+      });
+    }
+
+    // Momentum
+    if (loggedDayCount < MOMENTUM_VISIBLE_DAYS) {
+      list.push({
+        id: "momentum",
+        title: "momentum",
+        state: { status: "locked", message: daysRemainingMessage(loggedDayCount, MOMENTUM_VISIBLE_DAYS) },
+      });
+    } else if (loggedDayCount < MOMENTUM_READY_DAYS || momentumDelta === null) {
+      list.push({
+        id: "momentum",
+        title: "momentum",
+        state: { status: "locked", message: "needs a few more days for a full two-week comparison." },
+      });
+    } else {
+      const headline =
+        Math.abs(momentumDelta) < MOMENTUM_STEADY_THRESHOLD_PCT
+          ? "you're holding steady."
+          : `you're ${momentumDelta > 0 ? "up" : "down"} ${Math.abs(momentumDelta)}% from last week.`;
+      list.push({
+        id: "momentum",
+        title: "momentum",
+        state: {
+          status: "ready",
+          headline,
+          surprise: Math.min(1, Math.abs(momentumDelta) / 30),
+        },
+      });
+    }
+
+    // Recovery
+    if (loggedDayCount < RECOVERY_MIN_DAYS) {
+      list.push({
+        id: "recovery",
+        title: "recovery",
+        state: { status: "locked", message: daysRemainingMessage(loggedDayCount, RECOVERY_MIN_DAYS) },
+      });
+    } else if (!recovery) {
+      list.push({
+        id: "recovery",
+        title: "recovery",
+        state: { status: "locked", message: "needs a few more missed-then-recovered days to see the pattern." },
+      });
+    } else {
+      const rounded = Math.round(recovery.avgGapDays);
+      const dayWord = rounded === 1 ? "a day" : `${rounded} days`;
+      list.push({
+        id: "recovery",
+        title: "recovery",
+        state: {
+          status: "ready",
+          headline: `when you miss, you're usually back within ${dayWord}.`,
+          surprise: Math.min(1, Math.max(0, (3 - recovery.avgGapDays) / 2)),
+        },
+      });
+    }
+
+    // Habit correlations
+    if (habits.length < 2) {
+      list.push({
+        id: "correlation",
+        title: "habit correlations",
+        state: { status: "locked", message: "add a second habit to compare." },
+      });
+    } else if (loggedDayCount < CORRELATION_MIN_DAYS) {
+      list.push({
+        id: "correlation",
+        title: "habit correlations",
+        state: { status: "locked", message: daysRemainingMessage(loggedDayCount, CORRELATION_MIN_DAYS) },
+      });
+    } else if (!correlation) {
+      list.push({
+        id: "correlation",
+        title: "habit correlations",
+        state: { status: "locked", message: "still gathering enough overlap between habits." },
+      });
+    } else {
+      list.push({
+        id: "correlation",
+        title: "habit correlations",
+        state: {
+          status: "ready",
+          headline: `on days you did ${correlation.a.name}, you also did ${correlation.b.name} ${Math.round(correlation.withRate * 100)}% of the time — vs ${Math.round(correlation.withoutRate * 100)}% otherwise.`,
+          surprise: Math.min(1, correlation.diff / 0.5),
+        },
+      });
+    }
+
+    // Seasonal drift
+    if (seasonalDrift) {
+      list.push({
+        id: "seasonalDrift",
+        title: "seasonal drift",
+        state: {
+          status: "ready",
+          headline: `${seasonalDrift.deltaPct >= 0 ? "up" : "down"} ${Math.abs(seasonalDrift.deltaPct)}% from ${seasonalDrift.prevName}.`,
+          surprise: Math.min(1, Math.abs(seasonalDrift.deltaPct) / 30),
+        },
+      });
+    } else if (nextSeasonCountdown) {
+      list.push({
+        id: "seasonalDrift",
+        title: "seasonal drift",
+        state: { status: "locked", message: `${nextSeasonCountdown.days} days until ${nextSeasonCountdown.name}` },
+      });
+    } else {
+      list.push({
+        id: "seasonalDrift",
+        title: "seasonal drift",
+        state: { status: "locked", message: "needs data from a second season." },
+      });
+    }
+
+    return list;
+  }, [
+    loggedDayCount,
+    weekdayGap,
+    bestStreak,
+    hasDailyHabit,
+    perfectDaysCount,
+    momentumDelta,
+    recovery,
+    habits,
+    correlation,
+    seasonalDrift,
+    nextSeasonCountdown,
+  ]);
+
+  const { featured, comingUp } = useMemo(() => {
+    const unlocked = insights.filter(
+      (i): i is Insight & { state: { status: "ready"; headline: string; surprise: number } } =>
+        i.state.status === "ready",
+    );
+    const correlationInsight = unlocked.find((i) => i.id === "correlation") ?? null;
+    const rankedOthers = unlocked
+      .filter((i) => i.id !== "correlation")
+      .sort((a, b) => b.state.surprise - a.state.surprise);
+
+    const featuredList: Insight[] = correlationInsight ? [correlationInsight] : [];
+    const slotsLeft = Math.min(MAX_FEATURED, unlocked.length) - featuredList.length;
+    featuredList.push(...rankedOthers.slice(0, Math.max(0, slotsLeft)));
+
+    const overflow = rankedOthers.slice(Math.max(0, slotsLeft));
+    const stillLocked = insights.filter((i) => i.state.status === "locked");
+
+    return { featured: featuredList, comingUp: [...overflow, ...stillLocked] };
+  }, [insights]);
 
   if (loading) {
     return (
@@ -371,7 +681,6 @@ export function InsightsPanel({
             </span>
           ))}
         </div>
-        <p className="text-sm text-muted">{weekdaySummary}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -379,47 +688,30 @@ export function InsightsPanel({
           Insights
         </p>
 
-        <div className="rounded-2xl border border-line bg-card p-4">
-          <p className="font-medium text-ink">habit correlations</p>
-          {habits.length < 2 ? (
-            <p className="mt-1 text-sm text-muted">
-              add a second habit to compare.
-            </p>
-          ) : loggedDayCount < CORRELATION_DAYS_NEEDED ? (
-            <p className="mt-1 text-sm text-muted">
-              {CORRELATION_DAYS_NEEDED - loggedDayCount} more days of logging
-            </p>
-          ) : correlation ? (
-            <p className="mt-1 text-sm text-ink">
-              on days you did {correlation.a.name}, you also did{" "}
-              {correlation.b.name} {Math.round(correlation.withRate * 100)}% of
-              the time — vs {Math.round(correlation.withoutRate * 100)}%
-              otherwise.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted">
-              still gathering enough overlap between habits.
-            </p>
-          )}
-        </div>
+        {featured.map((insight) =>
+          insight.state.status === "ready" ? (
+            <div key={insight.id} className="rounded-2xl border border-line bg-card p-4">
+              <p className="font-medium text-ink">{insight.title}</p>
+              <p className="mt-1 text-sm text-ink">{insight.state.headline}</p>
+            </div>
+          ) : null,
+        )}
 
-        <div className="rounded-2xl border border-line bg-card p-4">
-          <p className="font-medium text-ink">seasonal drift</p>
-          {seasonalDrift ? (
-            <p className="mt-1 text-sm text-ink">
-              {seasonalDrift.deltaPct >= 0 ? "up" : "down"}{" "}
-              {Math.abs(seasonalDrift.deltaPct)}% from {seasonalDrift.prevName}.
+        {comingUp.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+              Coming up
             </p>
-          ) : nextSeasonCountdown ? (
-            <p className="mt-1 text-sm text-muted">
-              {nextSeasonCountdown.days} days until {nextSeasonCountdown.name}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted">
-              needs data from a second season.
-            </p>
-          )}
-        </div>
+            {comingUp.map((insight) => (
+              <div key={insight.id} className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-ink">{insight.title}</span>
+                <span className="text-xs text-muted">
+                  {insight.state.status === "ready" ? insight.state.headline : insight.state.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
