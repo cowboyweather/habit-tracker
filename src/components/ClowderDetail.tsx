@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MemberRing } from "@/components/MemberRing";
 import { startOfLocalDay, toDateKey } from "@/lib/date";
 import { markLandOnClowderPanel } from "@/lib/clowder-landing";
+import { SettingsIcon, LeaveIcon, CopyIcon, CheckIcon } from "@/components/icons";
 import type { ClowderMemberSummary } from "@/lib/clowder";
 
 // Ring size, tripled from the original 44px per the sizing pass — reads
@@ -16,81 +17,6 @@ const SHEET_RING_SIZE = 100;
 // 44px is the minimum comfortable touch target — every icon button here
 // uses this footprint even where the icon drawn inside it is smaller.
 const TOUCH_TARGET = "flex h-11 w-11 shrink-0 items-center justify-center";
-
-// A gear: a ring plus six blocky teeth, not thin radiating lines — the
-// earlier version used lines and read as a sun/brightness icon instead.
-const GEAR_TEETH_ANGLES = [0, 60, 120, 180, 240, 300];
-
-function SettingsIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {GEAR_TEETH_ANGLES.map((deg) => (
-        <rect
-          key={deg}
-          x="10.5"
-          y="0.5"
-          width="3"
-          height="4"
-          rx="0.5"
-          fill="currentColor"
-          transform={`rotate(${deg} 12 12)`}
-        />
-      ))}
-      <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
-
-function LeaveIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M16 8l4 4-4 4M20 12H9"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CopyIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M5 13l4 4L19 7"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 export function ClowderDetail({
   clowderId,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { BreedPicker } from "@/components/BreedPicker";
 import { LABEL_CLASS } from "@/lib/form-styles";
+import { logout } from "@/lib/auth-actions";
 import type { Breed } from "@/components/CatSprite";
 
 export function PetSettings({
@@ -73,6 +74,23 @@ export function PetSettings({
         >
           {saved ? "saved" : "save"}
         </button>
+      </div>
+
+      <div className="flex flex-col gap-1 border-t border-line pt-6">
+        <Link
+          href="/settings/patch-notes"
+          className="flex min-h-11 items-center text-sm font-medium text-ink transition hover:text-accent"
+        >
+          patch notes
+        </Link>
+        <form action={logout}>
+          <button
+            type="submit"
+            className="flex min-h-11 w-full items-center text-left text-sm font-medium text-ink transition hover:text-accent"
+          >
+            sign out
+          </button>
+        </form>
       </div>
     </div>
   );

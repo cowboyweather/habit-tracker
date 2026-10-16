@@ -3,7 +3,7 @@
 A free, insight-first habit tracker for adults. Seasonal rhythm, a pixel cat that
 reflects consistency, and AI-written titles as the shareable artifact.
 
-Last updated: 1 September 2026
+Last updated: 16 October 2026
 
 ---
 
@@ -13,7 +13,7 @@ Last updated: 1 September 2026
 
 - Next.js + TypeScript + Tailwind, deployed on Vercel, auto-deploys on push to `main`
 - Supabase Postgres with row-level security on every table
-- Eight tables: `seasons` (seeded through 2027), `habits`, `logs`, `pets`, `titles`, `clowders`, `clowder_members`, `clowder_nudges`
+- Ten tables: `seasons` (seeded through 2027), `habits`, `logs`, `pets`, `titles`, `clowders`, `clowder_members`, `clowder_nudges`, `releases`, `user_release_state`
 - Username + password auth, signup, login, sign-out
 - Onboarding: name the cat, add first habits
 - Home page: date and season line, greeting, title card, cat panel, weekly tracker
@@ -28,6 +28,8 @@ Last updated: 1 September 2026
 - Clowders: belong to up to 5 at once (friends, family, etc.), restructured into two real pages. `/clowders` is a light list — each clowder as a tappable house icon (one shared placeholder for now) and name, "+" to create or join another, up to 8 members per clowder. `/clowders/[id]` is the detail page: clowder name as the title, invite code shown small and unobtrusive, members in a responsive grid (2 up to 4 per row) each showing their cat with a trailing-7-day progress ring wrapped around it (closed rings get a checkmark badge, not just a full arc, so they read at a glance), cat name, and username. The leader — whoever created the clowder, or the longest-standing remaining member if they've left — is the only one who sees the settings icon button (rename, for now; enforced server-side, not just hidden). No visible marker on the leader's card for now — the crown was tried and pulled (see roadmap). Leaving asks for confirmation and auto-deletes an emptied clowder. Each clowder's invite code is permanent, assigned once at creation, no regenerate. Zero-clowder state is still just two buttons, create or join, one form open at a time
 - Nudging a clowder-mate: tap their cat in the member grid to open a small sheet (ring, cat name, username, and a nudge button that disables once used today) rather than a button sitting in the grid itself
 - Cat breeds: eight coats (munchkin, midnight, marmalade, tuxedo, siamese, russian, calico, snow), each a full sprite sheet rather than a palette swap of one shape. Picked during onboarding (munchkin preselected), and changeable any time by tapping the cat's panel on Home (a small swatch badge in the corner hints it's tappable) — picking one saves immediately and closes the sheet. Also still reachable from Settings for anyone who looks for it there. Same picker component in all three places. Stored on `pets.breed`, visible to clowder members through `get_my_clowder_summary()` the same narrow way as name/mood/streak
+- Settings: reached from a gear icon button on Home (top-right, 44px — replaced a text link that was hard to tap), houses cat coat, patch notes, and sign out, in that order. Sign out moved off Home entirely, so Home's header is just the date line and the gear, not two competing small text links
+- Release notes: published by hand through the Supabase SQL editor (`releases` — version, released date, title, body; no app-side write path at all). On opening the app, if there's a release newer than the one this user last acknowledged (`user_release_state`, one row per user), a dismissible sheet shows its title and body — not a gate, closes in one tap, the habit-logging UI underneath is untouched once it's gone. A patch notes page in settings lists every release, newest first
 
 **Not built yet:** everything below.
 
@@ -65,6 +67,7 @@ Recorded so they don't get relitigated in future sessions.
 | Perfect days / recovery are daily-habit-only | Both are inherently daily-cadence concepts — a weekly habit isn't supposed to be done every day, so folding it into a per-day "did you do everything" or "did you miss it" check would misrepresent its own normal cadence rather than measure anything real. If someone has zero daily habits, perfect days stays locked with "add a daily habit to track this" rather than silently showing a 0 |
 | Momentum: visible at 10 days, ready at 14 | The spec called for unlocking at 10 days, but a fair trailing-7-vs-previous-7 comparison needs 14 days of real history — at day 10-13 the "previous week" window is only partially populated. The card still appears at day 10 as specified, it just stays in a "needs a few more days" message until day 14 rather than comparing against a mostly-empty window |
 | Habit correlation is always featured, not ranked | The one exception to surprise-based selection — once unlocked it always takes a featured slot regardless of its score, with the remaining slots filled by ranking everything else. Reflects that it's the headline insight, not that it's necessarily the most surprising one on any given day |
+| New signups aren't backfilled against release notes | Only existing users get a one-time baseline set at ship time (see the publish workflow), so nobody already using the app gets hit with a backlog. A brand-new signup after that point has no `user_release_state` row at all, so they'll see whatever the single newest release is the first time they open Home — not a backlog (there's only ever one to show, the latest), and arguably decent context for someone just starting out. Not explicitly decided either way when this shipped; revisit if it turns out to feel random for new users |
 
 ---
 

@@ -9,10 +9,10 @@ import CatSprite, {
   type Expression,
   type Breed,
 } from "@/components/CatSprite";
-import { logout } from "@/lib/auth-actions";
 import { trailingWeekRate } from "@/lib/habit-progress";
 import { NudgeBanner } from "@/components/NudgeBanner";
 import { BreedPicker } from "@/components/BreedPicker";
+import { SettingsIcon } from "@/components/icons";
 import {
   addDays,
   daysBetween,
@@ -34,6 +34,14 @@ type Habit = {
 type Season = {
   name: string;
   start_date: string;
+};
+
+type ReleaseRow = {
+  id: string;
+  version: string;
+  released_at: string;
+  title: string;
+  body: string;
 };
 
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -132,10 +140,13 @@ export function HomeDashboard({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [breedError, setBreedError] = useState<string | null>(null);
   const [breedSheetOpen, setBreedSheetOpen] = useState(false);
+  // The single newest release, only when the signed-in user hasn't
+  // acknowledged it yet (null otherwise — nothing to show).
+  const [unseenRelease, setUnseenRelease] = useState<ReleaseRow | null>(null);
 
   useEffect(() => {
-    onSheetOpenChange(breedSheetOpen);
-  }, [breedSheetOpen, onSheetOpenChange]);
+    onSheetOpenChange(breedSheetOpen || unseenRelease !== null);
+  }, [breedSheetOpen, unseenRelease, onSheetOpenChange]);
   const [momentary, setMomentary] = useState<Expression | null>(null);
   // Rolled once, lazily, the first time the effect below actually runs.
   // null = not rolled yet.
@@ -178,33 +189,52 @@ export function HomeDashboard({
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
-        const [petRes, habitsRes, logsRes, seasonRes] = await Promise.all([
-          supabase
-            .from("pets")
-            .select("name, breed")
-            .eq("user_id", userId)
-            .abortSignal(controller.signal)
-            .maybeSingle(),
-          supabase
-            .from("habits")
-            .select("id, name, color, position, target_type, target_count")
-            .eq("user_id", userId)
-            .eq("archived", false)
-            .order("position", { ascending: true })
-            .abortSignal(controller.signal),
-          supabase
-            .from("logs")
-            .select("habit_id, log_date, done")
-            .eq("user_id", userId)
-            .abortSignal(controller.signal),
-          supabase
-            .from("seasons")
-            .select("name, start_date")
-            .lte("start_date", todayKey)
-            .gte("end_date", todayKey)
-            .abortSignal(controller.signal)
-            .maybeSingle(),
-        ]);
+        const [petRes, habitsRes, logsRes, seasonRes, releaseRes, releaseStateRes] =
+          await Promise.all([
+            supabase
+              .from("pets")
+              .select("name, breed")
+              .eq("user_id", userId)
+              .abortSignal(controller.signal)
+              .maybeSingle(),
+            supabase
+              .from("habits")
+              .select("id, name, color, position, target_type, target_count")
+              .eq("user_id", userId)
+              .eq("archived", false)
+              .order("position", { ascending: true })
+              .abortSignal(controller.signal),
+            supabase
+              .from("logs")
+              .select("habit_id, log_date, done")
+              .eq("user_id", userId)
+              .abortSignal(controller.signal),
+            supabase
+              .from("seasons")
+              .select("name, start_date")
+              .lte("start_date", todayKey)
+              .gte("end_date", todayKey)
+              .abortSignal(controller.signal)
+              .maybeSingle(),
+            // Release notes are a nice-to-have overlay, not core data — a
+            // failure here (including the table not existing yet, before
+            // its migration has run) is handled on its own below rather
+            // than failing the whole page load.
+            supabase
+              .from("releases")
+              .select("id, version, released_at, title, body")
+              .order("released_at", { ascending: false })
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .abortSignal(controller.signal)
+              .maybeSingle(),
+            supabase
+              .from("user_release_state")
+              .select("last_seen_release_id")
+              .eq("user_id", userId)
+              .abortSignal(controller.signal)
+              .maybeSingle(),
+          ]);
 
         clearTimeout(timeoutId);
         if (cancelled) return;
@@ -226,6 +256,15 @@ export function HomeDashboard({
         setLogs(logMap);
 
         setSeason((seasonRes.data as Season | null) ?? null);
+
+        const newestRelease = releaseRes.data as ReleaseRow | null;
+        const lastSeenId = releaseStateRes.data?.last_seen_release_id ?? null;
+        setUnseenRelease(
+          !releaseRes.error && newestRelease && newestRelease.id !== lastSeenId
+            ? newestRelease
+            : null,
+        );
+
         setLoading(false);
       } catch {
         clearTimeout(timeoutId);
@@ -295,6 +334,19 @@ export function HomeDashboard({
       setBreed(previousBreed);
       setBreedError("couldn't save that coat — try again.");
     }
+  }
+
+  // Dismisses immediately — the whole point is this never blocks getting
+  // to the actual logging UI underneath. If the write fails, the only
+  // consequence is the same notice showing again next time Home loads,
+  // which is a fine failure mode here.
+  function handleDismissRelease() {
+    if (!unseenRelease) return;
+    const releaseId = unseenRelease.id;
+    setUnseenRelease(null);
+    void supabase
+      .from("user_release_state")
+      .upsert({ user_id: userId, last_seen_release_id: releaseId });
   }
 
   async function toggleDay(habitId: string, dateKey: string) {
@@ -386,11 +438,13 @@ export function HomeDashboard({
       >
         <div className="flex items-center justify-between">
           <div className="h-3 w-36 animate-pulse rounded bg-line" />
-          <form action={logout}>
-            <button className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:text-ink">
-              Sign out
-            </button>
-          </form>
+          <Link
+            href="/settings"
+            aria-label="settings"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-muted transition hover:bg-line/60 hover:text-ink"
+          >
+            <SettingsIcon />
+          </Link>
         </div>
 
         <div className="rounded-2xl bg-ink p-5">
@@ -472,19 +526,13 @@ export function HomeDashboard({
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
           {topLine}
         </p>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/settings"
-            className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:text-ink"
-          >
-            Settings
-          </Link>
-          <form action={logout}>
-            <button className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:text-ink">
-              Sign out
-            </button>
-          </form>
-        </div>
+        <Link
+          href="/settings"
+          aria-label="settings"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-muted transition hover:bg-line/60 hover:text-ink"
+        >
+          <SettingsIcon />
+        </Link>
       </div>
 
       <NudgeBanner isActive={isActive} />
@@ -524,6 +572,10 @@ export function HomeDashboard({
           onChange={handleBreedChange}
           onClose={() => setBreedSheetOpen(false)}
         />
+      )}
+
+      {unseenRelease && (
+        <ReleaseSheet release={unseenRelease} onDismiss={handleDismissRelease} />
       )}
 
       <div className="flex flex-col gap-3">
@@ -701,6 +753,61 @@ function BreedSheet({
           className="min-h-11 w-full rounded-xl border border-line text-sm font-medium text-ink transition hover:border-accent active:scale-[0.98]"
         >
           close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Dismissible, not a gate — this is the one deliberate exception to every
+// other sheet in the app not having its own explicit "x" close button in
+// the corner, since a release notice (unlike choosing a coat or leaving a
+// clowder) has no action to take; the only thing to do with it is read it
+// and move on, so closing it needs to be obvious at a glance, not just
+// via the backdrop or a button at the bottom.
+function ReleaseSheet({
+  release,
+  onDismiss,
+}: {
+  release: { version: string; title: string; body: string };
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center"
+      onClick={onDismiss}
+    >
+      <div
+        className="relative flex w-full max-w-[360px] flex-col gap-4 rounded-t-3xl bg-card p-6 pb-8 sm:rounded-3xl"
+        style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="dismiss"
+          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center text-lg text-muted transition hover:text-ink"
+        >
+          ×
+        </button>
+
+        <div className="flex flex-col gap-1 pr-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent">
+            what&apos;s new · {release.version}
+          </p>
+          <p className="text-lg font-semibold tracking-[-0.02em] text-ink">
+            {release.title}
+          </p>
+        </div>
+
+        <p className="whitespace-pre-line text-sm text-ink">{release.body}</p>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="min-h-11 w-full rounded-xl bg-ink text-white transition hover:bg-ink/90 active:scale-[0.98]"
+        >
+          got it
         </button>
       </div>
     </div>
