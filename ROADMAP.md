@@ -3,7 +3,7 @@
 A free, insight-first habit tracker for adults. Seasonal rhythm, a pixel cat that
 reflects consistency, and AI-written titles as the shareable artifact.
 
-Last updated: 16 October 2026
+Last updated: 19 October 2026
 
 ---
 
@@ -29,6 +29,7 @@ Last updated: 16 October 2026
 - Nudging a clowder-mate: tap their cat in the member grid to open a small sheet (ring, cat name, username, and a nudge button that disables once used today) rather than a button sitting in the grid itself
 - Cat breeds: eight coats (munchkin, midnight, marmalade, tuxedo, siamese, russian, calico, snow), each a full sprite sheet rather than a palette swap of one shape. Picked during onboarding (munchkin preselected), and changeable any time by tapping the cat's panel on Home (a small swatch badge in the corner hints it's tappable) — picking one saves immediately and closes the sheet. Also still reachable from Settings for anyone who looks for it there. Same picker component in all three places. Stored on `pets.breed`, visible to clowder members through `get_my_clowder_summary()` the same narrow way as name/mood/streak
 - Settings: reached from a gear icon button on Home (top-right, 44px — replaced a text link that was hard to tap), houses cat coat, patch notes, and sign out, in that order. Sign out moved off Home entirely, so Home's header is just the date line and the gear, not two competing small text links
+- Weekly AI titles: the "this week you are" card on Home names the most recently finished Sun–Sat week. Generated lazily on the first app open after the week ends (no cron) by a server-only route (`/api/weekly-title`) calling Claude Sonnet with aggregate stats only — check-ins, completion, strongest/weakest day, longest streak, most/least-hit habit by name, up/down vs last week. Stored in `titles` (period_type 'week') with the stats snapshot in `stats_json`; the unique constraint plus insert-then-read-back means two racing tabs both show whichever title landed. Voice: lowercase (or a whole title in all caps), 1–5 words, Spotify daylist meets Minecraft splash text, always tied to a specific stat. Fallbacks never block Home: no logs that week → a fixed friendly line with no API call; generation failure → a plain line, nothing stored, retried next open
 - Release notes: published by hand through the Supabase SQL editor (`releases` — version, released date, title, body; no app-side write path at all). On opening the app, if there's a release newer than the one this user last acknowledged (`user_release_state`, one row per user), a dismissible sheet shows its title and body — not a gate, closes in one tap, the habit-logging UI underneath is untouched once it's gone. A patch notes page in settings lists every release, newest first
 
 **Not built yet:** everything below.
@@ -48,6 +49,7 @@ Recorded so they don't get relitigated in future sessions.
 | Analytics are free | Paywalling insight is the category norm and the thing this exists to undercut |
 | Archive, never delete | Habits archive so their history still counts in stats |
 | Titles | Gently funny, never cruel. Self-roast is fine; being roasted by software is not |
+| Weekly title generation | Lazy, on first open after the week ends — no cron. The client names the week (only it knows its timezone); the server accepts only a Sunday whose week has ended somewhere on Earth and is at most two weeks old. Only aggregate stats and habit names reach the model — no usernames or cat names. "No logs" and "failed" lines are never stored, so backfilling a week or a transient API failure still earns a real title later. Model output is validated (1–5 words, allowed punctuation only, single line) with one retry. Habit names are user-typed, so a prompt-injected habit name can at worst produce a strange title on that user's own card — the validator bounds it |
 | Art | Pixel, micro dialect, seven expressions, palette swaps for alternate coats |
 | Retroactive editing | Unlimited — no bound on how far back a day can be edited. Denominator (habits trackable that day) still bounded by created_at/archived_at; a day that ends up over 100% from backfilled logs shades as fully complete rather than being capped or hidden |
 | Season recap "seen" tracking | Reuses the existing `titles` table (period_type='season') rather than a new one — a row is both the seen-record and the stored title/stats snapshot, which is also what Phase 3's "reopenable cards" needs. Written on dismiss, not on load, so closing the tab before dismissing doesn't burn the one-time recap — seeing it twice is an accepted failure mode |
@@ -107,9 +109,9 @@ The differentiator. Everything here is arithmetic over data already stored.
 
 The viral surface. Not worth building until there's real data to describe.
 
-- [ ] Weekly title generated Sunday night from that week's numbers
-- [ ] Prompt with 8–10 hand-written examples setting the voice
-- [ ] Explicit rule for what a bad week sounds like
+- [x] Weekly title — generated lazily on the first app open after a Sun–Sat week ends (no cron), not Sunday night
+- [x] Prompt with hand-written examples setting the voice — 15, across great/good/average/thin weeks, each paired with the stats line it describes (`src/lib/weekly-title-prompt.ts`)
+- [x] Explicit rule for what a bad week sounds like — thin weeks (under 25% or under 4 check-ins) are flagged to the model as "be warm"
 - [x] Season recap screen shown once on first open after a solstice — title is a fixed placeholder for now, not yet AI-generated
 - [ ] Shareable card image — the thing people actually post
 - [x] Store generated titles with the stats they came from, so cards can be reopened — built early, as part of the season recap's `titles` row; weekly titles will use the same mechanism

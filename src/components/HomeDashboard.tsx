@@ -21,6 +21,12 @@ import {
   startOfWeek,
   toDateKey,
 } from "@/lib/date";
+import {
+  EMPTY_WEEK_LINE,
+  FAILED_TITLE_LINE,
+  NEW_USER_LINE,
+  previousWeekStart,
+} from "@/lib/weekly-title";
 
 type Habit = {
   id: string;
@@ -51,6 +57,10 @@ const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 // resets only on a real app reload — which is what "once per app open"
 // means here.
 let releaseCheckedThisLoad = false;
+// Same once-per-app-open rule for the weekly title: the promise is shared so
+// a remount mid-request reuses it instead of firing a second generation.
+// A failure stays failed until reload — "retry next open", not every swipe.
+let weeklyTitleThisLoad: Promise<string> | null = null;
 const STREAK_LOOKBACK_DAYS = 400;
 const WEEK_STREAK_LOOKBACK_WEEKS = 104;
 
@@ -185,6 +195,50 @@ export function HomeDashboard({
     }
 
     checkForUnseenRelease();
+  }, [supabase, userId]);
+
+  // null while resolving — the card shows a shimmer, nothing else waits on it.
+  const [weeklyTitle, setWeeklyTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveWeeklyTitle(): Promise<string> {
+      try {
+        const weekStart = toDateKey(previousWeekStart(new Date()));
+        // Fast path for six days out of seven: the title already exists.
+        const { data: existing, error } = await supabase
+          .from("titles")
+          .select("title_text")
+          .eq("user_id", userId)
+          .eq("period_type", "week")
+          .eq("period_start", weekStart)
+          .maybeSingle();
+        if (!error && existing) return existing.title_text;
+
+        const res = await fetch("/api/weekly-title", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ weekStart }),
+        });
+        if (!res.ok) return FAILED_TITLE_LINE;
+        const result = await res.json();
+        if (result.kind === "title") return result.text;
+        if (result.kind === "new") return NEW_USER_LINE;
+        if (result.kind === "empty") return EMPTY_WEEK_LINE;
+        return FAILED_TITLE_LINE;
+      } catch {
+        return FAILED_TITLE_LINE;
+      }
+    }
+
+    weeklyTitleThisLoad ??= resolveWeeklyTitle();
+    weeklyTitleThisLoad.then((text) => {
+      if (!cancelled) setWeeklyTitle(text);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [supabase, userId]);
   const [momentary, setMomentary] = useState<Expression | null>(null);
   // Rolled once, lazily, the first time the effect below actually runs.
@@ -561,9 +615,13 @@ export function HomeDashboard({
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-sky/70">
           This week you are
         </p>
-        <p className="mt-2 text-xl font-semibold tracking-[-0.02em] text-white">
-          new here — let&apos;s get started
-        </p>
+        {weeklyTitle === null ? (
+          <div className="mt-3 h-5 w-44 animate-pulse rounded bg-white/20" />
+        ) : (
+          <p className="mt-2 text-xl font-semibold tracking-[-0.02em] text-white">
+            {weeklyTitle}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-2">
