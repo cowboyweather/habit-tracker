@@ -1,11 +1,15 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, parseDateKey, toDateKey } from "@/lib/date";
 import type { HabitRecord, LogRow } from "@/lib/habit-stats";
-import { cleanTitle, computeWeeklyTitleStats } from "@/lib/weekly-title";
-import { formatStatsForPrompt, WEEKLY_TITLE_SYSTEM_PROMPT } from "@/lib/weekly-title-prompt";
+import { cleanTitle, computeWeeklyTitleStats, type WeeklyTitleStats } from "@/lib/weekly-title";
+import {
+  formatStatsForPrompt,
+  WEEKLY_TITLE_EXAMPLES,
+  WEEKLY_TITLE_SYSTEM_PROMPT,
+} from "@/lib/weekly-title-prompt";
 
-const MODEL = "claude-sonnet-5-5";
+const MODEL = "gemini-3.8-flash";
 
 type Result =
   | { kind: "title"; text: string }
@@ -30,28 +34,36 @@ function isValidWeekStart(key: unknown): key is string {
   return weekEndedBy <= addDays(serverToday, 1) && start >= addDays(serverToday, -15);
 }
 
-async function generateTitle(prompt: string): Promise<string | null> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+// Free-tier Flash. Thinking kept low: a 1-5 word title doesn't need it, and
+// thinking tokens count against maxOutputTokens.
+async function generateTitle(stats: WeeklyTitleStats): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("weekly title: ANTHROPIC_API_KEY is not set");
+    console.error("weekly title: GEMINI_API_KEY is not set");
     return null;
   }
-  const client = new Anthropic({ apiKey, timeout: 15000, maxRetries: 1 });
+  const ai = new GoogleGenAI({ apiKey });
+  const options = {
+    loud: stats.great,
+    exampleTitles: WEEKLY_TITLE_EXAMPLES.map((e) => e.title),
+  };
 
-  // One retry on an off-voice reply (too long, stray characters) before
-  // giving up for this open.
+  // One retry on an off-voice reply (too long, stray characters, a copied
+  // example) before giving up for this open.
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const message = await client.messages.create({
+      const response = await ai.models.generateContent({
         model: MODEL,
-        max_tokens: 40,
-        system: WEEKLY_TITLE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: prompt }],
+        contents: formatStatsForPrompt(stats),
+        config: {
+          systemInstruction: WEEKLY_TITLE_SYSTEM_PROMPT,
+          maxOutputTokens: 512,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          httpOptions: { timeout: 15000 },
+        },
       });
-      const text = message.content
-        .map((block) => (block.type === "text" ? block.text : ""))
-        .join("");
-      const cleaned = cleanTitle(text);
+      const text = response.text ?? "";
+      const cleaned = cleanTitle(text, options);
       if (cleaned) return cleaned;
       console.error("weekly title: rejected model output", JSON.stringify(text));
     } catch (error) {
@@ -109,7 +121,7 @@ export async function POST(request: Request) {
   );
   if (outcome.kind !== "stats") return json({ kind: outcome.kind });
 
-  const title = await generateTitle(formatStatsForPrompt(outcome.stats));
+  const title = await generateTitle(outcome.stats);
   if (!title) return json({ kind: "failed" });
 
   // ignoreDuplicates: if another tab won the race, keep its title. Then read

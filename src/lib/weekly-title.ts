@@ -16,8 +16,12 @@ const THIN_WEEK_COMPLETION_THRESHOLD = 0.25;
 const THIN_WEEK_CHECKIN_FLOOR = 4;
 // Week-over-week change under this many points reads as "flat".
 const FLAT_BAND_POINTS = 5;
+// All caps and "!" are reserved for great weeks: 85%+ or a new longest
+// streak (and never a thin week, so a new account's 2-day "record" during
+// a sparse week doesn't qualify).
+const GREAT_WEEK_COMPLETION = 85;
 
-export type HabitHit = { name: string; done: number; expected: number };
+type HabitHit = { done: number; expected: number };
 
 export type WeeklyTitleStats = {
   weekStart: string;
@@ -26,12 +30,11 @@ export type WeeklyTitleStats = {
   completionRate: number; // 0-100, whole points
   strongestDay: string | null;
   weakestDay: string | null;
-  longestStreak: { habitName: string; days: number; personalBest: boolean } | null;
-  mostHit: HabitHit | null;
-  leastHit: HabitHit | null;
+  longestStreak: { days: number; personalBest: boolean } | null;
   vsLastWeek: { direction: "up" | "down" | "flat"; points: number } | null;
   lastWeekCheckIns: number | null;
   thin: boolean;
+  great: boolean;
 };
 
 export type WeeklyTitleOutcome =
@@ -66,7 +69,7 @@ function habitHits(habits: HabitRecord[], logs: LogRow[], keys: string[]) {
     if (activeDays === 0) continue;
     const done = keys.filter((k) => doneSet(habit.id, logs).has(k)).length;
     const expected = habit.target_type === "weekly" ? habit.target_count : activeDays;
-    hits.push({ name: habit.name, done, expected, rate: Math.min(1, done / expected) });
+    hits.push({ done, expected, rate: Math.min(1, done / expected) });
   }
   return hits;
 }
@@ -114,7 +117,6 @@ function longestStreak(
 
     if (touchingBest >= 2 && (!best || touchingBest > best.days)) {
       best = {
-        habitName: habit.name,
         days: touchingBest,
         personalBest: touchingBest === allTimeBest,
       };
@@ -151,9 +153,6 @@ export function computeWeeklyTitleStats(
   const strongest = uniqueExtreme(dayCounts, (d) => d.count, "max");
   const weakest = uniqueExtreme(dayCounts, (d) => d.count, "min");
 
-  const mostHit = uniqueExtreme(hits, (h) => h.rate, "max");
-  const leastHit = uniqueExtreme(hits, (h) => h.rate, "min");
-
   const lastWeekHits = habitHits(habits, logs, lastWeekKeys);
   const lastWeekRate = averageRate(lastWeekHits);
   let vsLastWeek: WeeklyTitleStats["vsLastWeek"] = null;
@@ -169,8 +168,8 @@ export function computeWeeklyTitleStats(
       ? null
       : logs.filter((l) => l.done && l.log_date >= lastWeekKeys[0] && l.log_date <= lastWeekKeys[6]).length;
 
-  const stripHit = (h: (typeof hits)[number] | null): HabitHit | null =>
-    h ? { name: h.name, done: h.done, expected: h.expected } : null;
+  const streak = longestStreak(habits, logs, keys);
+  const thin = rate < THIN_WEEK_COMPLETION_THRESHOLD || weekLogs.length < THIN_WEEK_CHECKIN_FLOOR;
 
   return {
     kind: "stats",
@@ -181,20 +180,32 @@ export function computeWeeklyTitleStats(
       completionRate,
       strongestDay: strongest && strongest.count > 0 ? strongest.name : null,
       weakestDay: weakest ? weakest.name : null,
-      longestStreak: longestStreak(habits, logs, keys),
-      mostHit: stripHit(mostHit),
-      leastHit: stripHit(leastHit),
+      longestStreak: streak,
       vsLastWeek,
       lastWeekCheckIns,
-      thin: rate < THIN_WEEK_COMPLETION_THRESHOLD || weekLogs.length < THIN_WEEK_CHECKIN_FLOOR,
+      thin,
+      great: !thin && (completionRate >= GREAT_WEEK_COMPLETION || !!streak?.personalBest),
     },
   };
 }
 
 // Model output → a displayable title, or null to reject. 1-5 words; keeps
 // ! ? ... and in-word apostrophes; strips quotation marks; all caps is kept
-// only when the whole title is caps, otherwise forced lowercase.
-export function cleanTitle(raw: string): string | null {
+// only when the whole title is caps (and the week is great), otherwise
+// forced lowercase.
+//
+// The prompt states the loud-week rule and the never-copy-an-example rule;
+// these enforce both regardless of what the model does. A non-great week's
+// "!" and caps are stripped (fixable, so no retry); a copied example is
+// rejected (not fixable, so retry).
+function normalizeForCompare(t: string): string {
+  return t.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "").replace(/\s+/g, " ").trim();
+}
+
+export function cleanTitle(
+  raw: string,
+  { loud, exampleTitles }: { loud: boolean; exampleTitles: string[] },
+): string | null {
   // More than one line means preamble ("here's your title:") — reject and retry.
   const lines = raw.split("\n").filter((line) => line.trim().length > 0);
   if (lines.length !== 1) return null;
@@ -205,11 +216,14 @@ export function cleanTitle(raw: string): string | null {
   t = t.replace(/\s+/g, " ");
   // A lone trailing period reads as a sentence, not a title; "..." stays.
   if (/[^.]\.$/.test(t)) t = t.slice(0, -1);
+  if (!loud) t = t.replace(/!/g, "").trim().toLowerCase();
 
   if (t.length === 0 || t.length > 48) return null;
   if (!/^[\p{L}\p{N} '’!?.,:\-&]+$/u.test(t)) return null;
   const words = t.split(" ").filter((w) => /[\p{L}\p{N}]/u.test(w));
   if (words.length < 1 || words.length > 5 || t.split(" ").length > 5) return null;
+  const normalized = normalizeForCompare(t);
+  if (exampleTitles.some((e) => normalizeForCompare(e) === normalized)) return null;
 
   const letters = t.replace(/[^\p{L}]/gu, "");
   const allCaps = letters.length > 0 && letters === letters.toUpperCase() && letters !== letters.toLowerCase();
