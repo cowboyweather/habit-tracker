@@ -45,6 +45,12 @@ type ReleaseRow = {
 };
 
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+
+// Module-level, not component state: survives HomeDashboard remounting on a
+// client-side navigation back to "/" (e.g. returning from a clowder page),
+// resets only on a real app reload — which is what "once per app open"
+// means here.
+let releaseCheckedThisLoad = false;
 const STREAK_LOOKBACK_DAYS = 400;
 const WEEK_STREAK_LOOKBACK_WEEKS = 104;
 
@@ -147,6 +153,39 @@ export function HomeDashboard({
   useEffect(() => {
     onSheetOpenChange(breedSheetOpen || unseenRelease !== null);
   }, [breedSheetOpen, unseenRelease, onSheetOpenChange]);
+
+  // Once per app load, deliberately not part of the refetch-on-visible
+  // effect below — that one re-runs every time Home is swiped back to.
+  // A failure here (including the tables not existing yet) just means no
+  // notice; release notes aren't core data, so they never fail the page.
+  useEffect(() => {
+    if (releaseCheckedThisLoad) return;
+    releaseCheckedThisLoad = true;
+
+    async function checkForUnseenRelease() {
+      const [releaseRes, stateRes] = await Promise.all([
+        supabase
+          .from("releases")
+          .select("id, version, released_at, title, body")
+          .order("released_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("user_release_state")
+          .select("last_seen_release_id")
+          .eq("user_id", userId)
+          .maybeSingle(),
+      ]);
+      if (releaseRes.error || stateRes.error) return;
+      const newest = releaseRes.data as ReleaseRow | null;
+      if (newest && newest.id !== stateRes.data?.last_seen_release_id) {
+        setUnseenRelease(newest);
+      }
+    }
+
+    checkForUnseenRelease();
+  }, [supabase, userId]);
   const [momentary, setMomentary] = useState<Expression | null>(null);
   // Rolled once, lazily, the first time the effect below actually runs.
   // null = not rolled yet.
@@ -189,52 +228,33 @@ export function HomeDashboard({
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
-        const [petRes, habitsRes, logsRes, seasonRes, releaseRes, releaseStateRes] =
-          await Promise.all([
-            supabase
-              .from("pets")
-              .select("name, breed")
-              .eq("user_id", userId)
-              .abortSignal(controller.signal)
-              .maybeSingle(),
-            supabase
-              .from("habits")
-              .select("id, name, color, position, target_type, target_count")
-              .eq("user_id", userId)
-              .eq("archived", false)
-              .order("position", { ascending: true })
-              .abortSignal(controller.signal),
-            supabase
-              .from("logs")
-              .select("habit_id, log_date, done")
-              .eq("user_id", userId)
-              .abortSignal(controller.signal),
-            supabase
-              .from("seasons")
-              .select("name, start_date")
-              .lte("start_date", todayKey)
-              .gte("end_date", todayKey)
-              .abortSignal(controller.signal)
-              .maybeSingle(),
-            // Release notes are a nice-to-have overlay, not core data — a
-            // failure here (including the table not existing yet, before
-            // its migration has run) is handled on its own below rather
-            // than failing the whole page load.
-            supabase
-              .from("releases")
-              .select("id, version, released_at, title, body")
-              .order("released_at", { ascending: false })
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .abortSignal(controller.signal)
-              .maybeSingle(),
-            supabase
-              .from("user_release_state")
-              .select("last_seen_release_id")
-              .eq("user_id", userId)
-              .abortSignal(controller.signal)
-              .maybeSingle(),
-          ]);
+        const [petRes, habitsRes, logsRes, seasonRes] = await Promise.all([
+          supabase
+            .from("pets")
+            .select("name, breed")
+            .eq("user_id", userId)
+            .abortSignal(controller.signal)
+            .maybeSingle(),
+          supabase
+            .from("habits")
+            .select("id, name, color, position, target_type, target_count")
+            .eq("user_id", userId)
+            .eq("archived", false)
+            .order("position", { ascending: true })
+            .abortSignal(controller.signal),
+          supabase
+            .from("logs")
+            .select("habit_id, log_date, done")
+            .eq("user_id", userId)
+            .abortSignal(controller.signal),
+          supabase
+            .from("seasons")
+            .select("name, start_date")
+            .lte("start_date", todayKey)
+            .gte("end_date", todayKey)
+            .abortSignal(controller.signal)
+            .maybeSingle(),
+        ]);
 
         clearTimeout(timeoutId);
         if (cancelled) return;
@@ -256,15 +276,6 @@ export function HomeDashboard({
         setLogs(logMap);
 
         setSeason((seasonRes.data as Season | null) ?? null);
-
-        const newestRelease = releaseRes.data as ReleaseRow | null;
-        const lastSeenId = releaseStateRes.data?.last_seen_release_id ?? null;
-        setUnseenRelease(
-          !releaseRes.error && newestRelease && newestRelease.id !== lastSeenId
-            ? newestRelease
-            : null,
-        );
-
         setLoading(false);
       } catch {
         clearTimeout(timeoutId);
@@ -336,17 +347,26 @@ export function HomeDashboard({
     }
   }
 
-  // Dismisses immediately — the whole point is this never blocks getting
-  // to the actual logging UI underneath. If the write fails, the only
-  // consequence is the same notice showing again next time Home loads,
-  // which is a fine failure mode here.
-  function handleDismissRelease() {
+  // Hides immediately so it never blocks the logging UI, then writes. The
+  // write must be awaited: Supabase query builders are lazy and send
+  // nothing until awaited, so a fire-and-forget call silently does nothing.
+  // Selecting the row back confirms it actually landed. If it didn't, the
+  // notice returns on the next app open — an acceptable failure mode.
+  async function handleDismissRelease() {
     if (!unseenRelease) return;
     const releaseId = unseenRelease.id;
     setUnseenRelease(null);
-    void supabase
+    const { data, error } = await supabase
       .from("user_release_state")
-      .upsert({ user_id: userId, last_seen_release_id: releaseId });
+      .upsert({
+        user_id: userId,
+        last_seen_release_id: releaseId,
+        updated_at: new Date().toISOString(),
+      })
+      .select("last_seen_release_id");
+    if (error || data?.[0]?.last_seen_release_id !== releaseId) {
+      console.error("couldn't record release as seen", error);
+    }
   }
 
   async function toggleDay(habitId: string, dateKey: string) {
